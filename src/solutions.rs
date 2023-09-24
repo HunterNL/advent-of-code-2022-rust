@@ -1,4 +1,4 @@
-use std::{fmt::Display, fs, io::Read, time};
+use std::{error::Error, fmt::Display, fs, io::Read, time};
 
 mod day1;
 mod day2;
@@ -19,7 +19,6 @@ impl From<i32> for PartResult {
         Self::Int(val)
     }
 }
-
 #[derive(Debug)]
 pub struct DayOutput {
     part1: Option<PartResult>,
@@ -29,7 +28,7 @@ pub struct DayOutput {
 impl From<&str> for DayOutput {
     fn from(value: &str) -> Self {
         let parsed_values: Vec<i32> = value
-            .split(",")
+            .split(',')
             .filter_map(|v| v.parse::<i32>().ok())
             .collect();
 
@@ -47,6 +46,7 @@ impl From<&str> for DayOutput {
         // let p2  = parsed_values.get(1).flatten().map(|&f| PartResult::Int(f));
 
         Self {
+            #[allow(clippy::get_first)]
             part1: parsed_values.get(0).map(|&f| -> PartResult { f.into() }),
             part2: parsed_values.get(1).map(|&f| -> PartResult { f.into() }),
         }
@@ -67,6 +67,23 @@ pub struct SolutionOutput {
 pub struct NoInputFileErr {
     path: String,
     day_number: Option<i32>,
+}
+
+impl From<NoInputFileErr> for String {
+    fn from(val: NoInputFileErr) -> Self {
+        val.to_string()
+    }
+}
+
+impl Display for NoInputFileErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "No file found for day {}: {}",
+            self.day_number.unwrap_or(0),
+            self.path
+        )
+    }
 }
 
 type DayFn = fn(&str) -> DayOutput;
@@ -199,21 +216,8 @@ fn read_file(path: &str) -> Result<String, NoInputFileErr> {
         })
 }
 
-fn get_solution(day_number: i32) -> DayOutput {
-    let path = format!("./data/solution/day{day_number}.txt");
-    read_file(&path).map_or(
-        DayOutput {
-            part1: None,
-            part2: None,
-        },
-        |f| DayOutput::from(f.as_ref()),
-    )
-}
-
 fn get_input(day_number: i32) -> Result<String, NoInputFileErr> {
-    let path = format!("./data/input/day{day_number}.txt");
-
-    read_file(&path)
+    read_file(format!("./data/input/day{day_number}.txt").as_ref())
     // let file_path = format!("./data/input/day{day_number}.txt");
     // let mut file_contents = String::new();
 
@@ -247,11 +251,13 @@ pub mod testutils {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     enum TestError {
         Failure(i32, String, String),
         NoInput,
+        NoInputFile(String),
         NoResult,
     }
 
@@ -261,17 +267,31 @@ mod tests {
                 TestError::Failure(part, expected, actual) => {
                     format!("Expected {} got {}", expected, actual)
                 }
-                TestError::NoInput => "No input".to_owned(),
+                TestError::NoInput => format!("No input {}", ""),
                 TestError::NoResult => "No result".to_owned(),
+                TestError::NoInputFile(s) => format!("No input file {}", s),
             }
         }
+    }
+
+    fn get_solution(day_number: i32) -> Result<DayOutput, NoInputFileErr> {
+        let path = format!("./data/solution/day{day_number}.txt");
+        // read_file(&path).map_or(
+        //     DayOutput {
+        //         part1: None,
+        //         part2: None,
+        //     },
+        //     |f| DayOutput::from(f.as_ref()),
+        // )
+
+        read_file(&path).map(|str| DayOutput::from(str.as_ref()))
     }
 
     fn compare_result(
         expected: Option<PartResult>,
         actual: Option<PartResult>,
     ) -> Result<(), TestError> {
-        let e = expected.ok_or(TestError::NoInput)?;
+        let e = expected.ok_or(TestError::NoResult)?;
         let i = actual.ok_or(TestError::NoResult)?;
 
         match e == i {
@@ -281,8 +301,9 @@ mod tests {
     }
 
     pub fn test_day(day_number: i32, solution: DayFn) -> Result<(), String> {
-        let input = get_input(day_number).map_err(|_| TestError::NoInput)?;
-        let expected = get_solution(day_number);
+        let input =
+            get_input(day_number).map_err(|file_error| TestError::NoInputFile(file_error.path))?;
+        let expected = get_solution(day_number)?;
         let actual = solution(&input);
 
         compare_result(expected.part1, actual.part1)?;

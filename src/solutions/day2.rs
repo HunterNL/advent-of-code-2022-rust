@@ -91,4 +91,9 @@ mod tests {
         assert_eq!(g2.score_p2(), 1);
         assert_eq!(g3.score_p2(), 7);
     }
+
+    #[test]
+    fn day() -> Result<(), String> {
+        super::super::tests::test_day(2, super::solve)
+    }
 }

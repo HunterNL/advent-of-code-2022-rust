@@ -29,7 +29,7 @@ pub fn solve(input: &str) -> DayOutput {
 mod tests {
 
     #[test]
-    fn test_day1() -> Result<(), String> {
+    fn day() -> Result<(), String> {
         super::super::tests::test_day(1, super::solve)
     }
 }
