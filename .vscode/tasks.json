@@ -1,0 +1,22 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cargo",
+			"command": "clippy",
+			"args": [
+				"--",
+				"-W",
+				"clippy::pedantic",
+				"-W",
+				"clippy::nursery",
+				"-W",
+				"clippy::unwrap_used"
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"label": "rust: cargo clippy"
+		}
+	]
+}

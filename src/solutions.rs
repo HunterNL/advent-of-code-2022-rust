@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::Display, fs, io::Read, time};
+use std::{fmt::Display, fs, io::Read, time};
 
 mod day1;
 mod day2;
