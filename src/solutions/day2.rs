@@ -10,7 +10,6 @@ const fn radial_dif(a: i32, b: i32) -> i32 {
 }
 
 impl GuideLine {
-    /// Returns the score of this [`GuideLine`].
     fn score_p1(&self) -> i32 {
         let w1: i32 = radial_dif(self.1, self.0);
         let win_score: i32 = (w1 + 4) % 3;
@@ -23,11 +22,6 @@ impl GuideLine {
 
         let win_score: i32 = self.1 * 3;
         let piece_score = mine + 1;
-
-        // println!(
-        //     "They play {}, I need to {} so I play {}, scoring {} for the win and {} for the piece",
-        //     self.0, self.1, mine, win_score, piece_score
-        // );
 
         win_score + piece_score
     }
@@ -73,7 +67,7 @@ mod tests {
         let g1: super::GuideLine = "A Y".into();
         let g2: super::GuideLine = "B X".into();
         let g3: super::GuideLine = "C Z".into();
-        let g4: super::GuideLine = "A Z".into(); //OP: ROCK ME: SISSORS
+        let g4: super::GuideLine = "A Z".into(); // Seemingly an edge case before
 
         assert_eq!(g1.score_p1(), 8);
         assert_eq!(g2.score_p1(), 1);
