@@ -1,6 +1,6 @@
 use crate::solutions::DayOutput;
 
-use super::PartResult;
+use super::{LogicError, PartResult};
 
 #[derive(Debug)]
 struct GuideLine(i32, i32);
@@ -35,7 +35,7 @@ impl From<&str> for GuideLine {
 }
 
 // https://adventofcode.com/2022/day/2
-pub fn solve(input: &str) -> DayOutput {
+pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     let lines: Vec<GuideLine> = input
         .split('\n')
         .filter(|s| s.len() == 3)
@@ -45,10 +45,10 @@ pub fn solve(input: &str) -> DayOutput {
     let part1 = lines.iter().map(GuideLine::score_p1).sum();
     let part2 = lines.iter().map(GuideLine::score_p2).sum();
 
-    DayOutput {
+    Ok(DayOutput {
         part1: Some(PartResult::Int(part1)),
         part2: Some(PartResult::Int(part2)),
-    }
+    })
 }
 
 #[cfg(test)]

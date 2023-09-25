@@ -2,6 +2,7 @@ use std::{fmt::Display, fs, io::Read, time};
 
 mod day1;
 mod day2;
+mod day3;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PartResult {
@@ -70,20 +71,29 @@ impl Display for NoInputFileErr {
     }
 }
 
-type DayFn = fn(&str) -> DayOutput;
+pub struct LogicError(String);
 
-fn run_day(n: i32, solution: DayFn) -> Result<SolutionOutput, NoInputFileErr> {
-    let r = get_input(n)?;
+enum DayError {
+    NoInputFileErr(String),
+    LogicError(String),
+}
+
+type DayFn = fn(&str) -> Result<DayOutput, LogicError>;
+
+fn run_day(n: i32, solution: DayFn) -> Result<SolutionOutput, DayError> {
+    let r = get_input(n).map_err(|er| DayError::NoInputFileErr(er.path))?;
 
     let time_start = time::Instant::now();
     let output = solution(&r);
     let duration = time_start.elapsed();
 
-    Ok(SolutionOutput {
-        values: output,
-        duration,
-        day_number: n,
-    })
+    output
+        .map(|o| SolutionOutput {
+            values: o,
+            duration,
+            day_number: n,
+        })
+        .map_err(|e| DayError::LogicError(e.0))
 }
 
 impl Display for PartResult {
@@ -114,7 +124,7 @@ impl Display for DayOutput {
     }
 }
 
-fn print_result(r: Result<SolutionOutput, NoInputFileErr>) {
+fn print_result(r: Result<SolutionOutput, DayError>) {
     match r {
         Ok(s) => println!(
             "Day {:2}: {:4}ms [{}|{}]",
@@ -123,16 +133,17 @@ fn print_result(r: Result<SolutionOutput, NoInputFileErr>) {
             s.values.part1.unwrap_or(PartResult::Int(-1)),
             s.values.part2.unwrap_or(PartResult::Int(-1))
         ),
-        Err(err) => println!(
-            "Error getting input file for day {}",
-            err.day_number.unwrap_or(-1)
-        ),
+        Err(err) => match err {
+            DayError::NoInputFileErr(s) => println!("Error getting file {s}"),
+            DayError::LogicError(s) => println!("Error during solve: {s}"),
+        },
     }
 }
 
 pub fn run() {
     print_result(run_day(1, day1::solve));
     print_result(run_day(2, day2::solve));
+    print_result(run_day(3, day3::solve));
 }
 
 fn read_file(path: &str) -> Result<String, NoInputFileErr> {
@@ -210,7 +221,7 @@ mod tests {
 
         match e == i {
             true => Ok(()),
-            false => Err(TestError::Failure(part, i.to_string(), e.to_string())),
+            false => Err(TestError::Failure(part, e.to_string(), i.to_string())),
         }
     }
 
@@ -218,7 +229,7 @@ mod tests {
         let input =
             get_input(day_number).map_err(|file_error| TestError::NoInputFile(file_error.path))?;
         let expected = get_solution(day_number)?;
-        let actual = solution(&input);
+        let actual = solution(&input).map_err(|e| e.0.to_string())?;
 
         compare_result(expected.part1, actual.part1, Part::Part1)?;
         compare_result(expected.part2, actual.part2, Part::Part2)?;

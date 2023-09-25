@@ -1,8 +1,10 @@
 use crate::solutions::DayOutput;
 use crate::solutions::PartResult;
 
+use super::LogicError;
+
 // https://adventofcode.com/2022/day/1
-pub fn solve(input: &str) -> DayOutput {
+pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     let elfs: Vec<&str> = input.split("\n\n").collect();
 
     let mut elf_calories = elfs
@@ -20,10 +22,10 @@ pub fn solve(input: &str) -> DayOutput {
 
     let top3_elf_calories = elf_calories[0..3].iter().sum();
 
-    DayOutput {
+    Ok(DayOutput {
         part1: Some(PartResult::Int(max_elf_calories)),
         part2: Some(PartResult::Int(top3_elf_calories)),
-    }
+    })
 }
 
 mod tests {
