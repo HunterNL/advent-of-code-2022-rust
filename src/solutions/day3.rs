@@ -5,7 +5,11 @@ use super::LogicError;
 
 use std::convert::TryFrom;
 
-struct Rucksack(String, String, String);
+struct Rucksack {
+    full_string: String,
+    left: String,
+    right: String,
+}
 
 fn char_priority(c: char) -> Option<i32> {
     if c.is_uppercase() {
@@ -18,10 +22,10 @@ fn char_priority(c: char) -> Option<i32> {
 
 impl Rucksack {
     fn priority_item_value(&self) -> Option<i32> {
-        self.1
+        self.left
             .chars()
             .find_map(|left_char| {
-                self.2
+                self.right
                     .chars()
                     .find_map(|right_char| (left_char == right_char).then_some(right_char))
             })
@@ -36,27 +40,28 @@ impl TryFrom<&str> for Rucksack {
         let mid = value.len() / 2;
         let (left, right) = value.split_at(mid);
 
-        Ok(Self(value.to_owned(), left.to_owned(), right.to_owned()))
+        Ok(Self {
+            full_string: value.to_owned(),
+            left: left.to_owned(),
+            right: right.to_owned(),
+        })
     }
 }
 
 fn find_badge(sacks: &[Rucksack]) -> char {
-    // let s1 = &sacks[0];
-    // let s2 = &sacks[1];
-    // let s3 = &sacks[2];
+    let mut s: Vec<String> = vec![String::new(), String::new(), String::new()];
+    let s2: Vec<String> = sacks.iter().map(|f| f.full_string.clone()).collect();
 
-    sacks[0]
-        .0
+    s[0..3].clone_from_slice(&s2[0..3]);
+
+    s.sort_by_key(String::len);
+
+    let smallest = &s[0];
+
+    smallest
         .chars()
-        .find_map(|c1| {
-            sacks[1].0.chars().find_map(|c2| {
-                sacks[2]
-                    .0
-                    .chars()
-                    .find_map(|c3| (c1 == c2 && c2 == c3).then_some(c1))
-            })
-        })
-        .expect("Item found")
+        .find_map(|ch| s.iter().skip(1).all(|sack| sack.contains(ch)).then_some(ch))
+        .expect("Smallest character")
 }
 
 // https://adventofcode.com/2022/day/3
@@ -71,7 +76,6 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
         .filter_map(Rucksack::priority_item_value)
         .sum();
 
-    // TODO: SLOW! ~30ms
     let badge_sum: i32 = rucksacks
         .chunks(3)
         .map(find_badge)
