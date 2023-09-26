@@ -11,7 +11,11 @@
 				"-W",
 				"clippy::nursery",
 				"-W",
-				"clippy::unwrap_used"
+				"clippy::unwrap_used",
+				"-A",
+				"clippy::missing-const-for-fn",
+				"-A",
+				"clippy::unnecessary_wraps"
 			],
 			"problemMatcher": [
 				"$rustc"

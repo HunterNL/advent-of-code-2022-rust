@@ -3,6 +3,7 @@ use std::{fmt::Display, fs, io::Read, time};
 mod day1;
 mod day2;
 mod day3;
+mod day4;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PartResult {
@@ -96,6 +97,13 @@ fn run_day(n: i32, solution: DayFn) -> Result<SolutionOutput, DayError> {
         .map_err(|e| DayError::LogicError(e.0))
 }
 
+pub fn run() {
+    print_result(run_day(1, day1::solve));
+    print_result(run_day(2, day2::solve));
+    print_result(run_day(3, day3::solve));
+    print_result(run_day(4, day4::solve));
+}
+
 impl Display for PartResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -138,12 +146,6 @@ fn print_result(r: Result<SolutionOutput, DayError>) {
             DayError::LogicError(s) => println!("Error during solve: {s}"),
         },
     }
-}
-
-pub fn run() {
-    print_result(run_day(1, day1::solve));
-    print_result(run_day(2, day2::solve));
-    print_result(run_day(3, day3::solve));
 }
 
 fn read_file(path: &str) -> Result<String, NoInputFileErr> {
