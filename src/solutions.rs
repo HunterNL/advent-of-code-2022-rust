@@ -5,12 +5,15 @@ mod day2;
 mod day3;
 mod day4;
 mod day5;
+mod day6;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PartResult {
     Int(i32),
     Str(String),
 }
+
+static MISSING_OUTPUT_MESSAGE: &str = "<MISSING>";
 
 impl FromStr for PartResult {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -105,6 +108,7 @@ pub fn run() {
     print_result(run_day(3, day3::solve));
     print_result(run_day(4, day4::solve));
     print_result(run_day(5, day5::solve));
+    print_result(run_day(6, day6::solve));
 }
 
 impl Display for PartResult {
@@ -142,8 +146,12 @@ fn print_result(r: Result<SolutionOutput, DayError>) {
             "Day {:2}: {:4}ms [{}|{}]",
             s.day_number,
             s.duration.as_millis(),
-            s.values.part1.unwrap_or(PartResult::Int(-1)),
-            s.values.part2.unwrap_or(PartResult::Int(-1))
+            s.values
+                .part1
+                .unwrap_or(PartResult::Str(MISSING_OUTPUT_MESSAGE.to_string())),
+            s.values
+                .part2
+                .unwrap_or(PartResult::Str(MISSING_OUTPUT_MESSAGE.to_string())),
         ),
         Err(err) => match err {
             DayError::NoInputFileErr(s) => println!("Error getting file {s}"),
