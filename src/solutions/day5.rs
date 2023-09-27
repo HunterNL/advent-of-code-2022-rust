@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::ops::Index;
 use std::ops::IndexMut;
 use std::str::Chars;
 use std::str::FromStr;
@@ -44,24 +43,21 @@ fn scan_i32_from_char_mut(i: &mut Chars<'_>) -> i32 {
     digit_as_string.parse().unwrap()
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct Stacks(Vec<Vec<u8>>);
 
 impl Display for Stacks {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Ok(self.0.iter().for_each(|v| {
-            let s: String = v.iter().map(|c| c.clone() as char).collect();
-            write!(f, "{s}\n");
-        }))
+        self.0.iter().try_for_each(|v| {
+            let s: String = v.iter().map(|c| *c as char).collect();
+            writeln!(f, "{s}")
+        })
     }
 }
 
 impl Stacks {
     fn print_top_stack(&self) -> String {
-        self.0
-            .iter()
-            .map(|v| v.last().unwrap().clone() as char)
-            .collect()
+        self.0.iter().map(|v| *v.last().unwrap() as char).collect()
     }
 }
 
@@ -96,15 +92,15 @@ impl FromStr for Stacks {
 
 // https://adventofcode.com/2022/day/5
 pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
-    let (stackStr, commandStr) = input.split_once("\n\n").expect("input to contain newlines");
+    let (stack_str, command_str) = input.split_once("\n\n").expect("input to contain newlines");
 
-    let commands: Vec<Command> = commandStr
+    let commands: Vec<Command> = command_str
         .lines()
         .map(|l| l.parse::<Command>())
         .map(|o| o.expect("valid command"))
         .collect();
 
-    let mut part1_stack: Stacks = stackStr.parse().expect("succesful parse");
+    let mut part1_stack: Stacks = stack_str.parse().expect("succesful parse");
     let mut part2_stack: Stacks = part1_stack.clone();
 
     execute_p1_crane_commands(&mut part1_stack, &commands);
@@ -119,7 +115,7 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     })
 }
 
-fn execute_p1_crane_commands(s: &mut Stacks, commands: &Vec<Command>) {
+fn execute_p1_crane_commands(s: &mut Stacks, commands: &[Command]) {
     commands.iter().for_each(|command| {
         for _ in 0..command.count {
             let container =
@@ -132,7 +128,7 @@ fn execute_p1_crane_commands(s: &mut Stacks, commands: &Vec<Command>) {
     });
 }
 
-fn execute_p2_crane_commands(s: &mut Stacks, commands: &Vec<Command>) {
+fn execute_p2_crane_commands(s: &mut Stacks, commands: &[Command]) {
     commands.iter().for_each(|command| {
         let mut arm_stack = vec![];
         for _ in 0..command.count {
