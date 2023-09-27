@@ -148,10 +148,10 @@ fn print_result(r: Result<SolutionOutput, DayError>) {
             s.duration.as_millis(),
             s.values
                 .part1
-                .unwrap_or(PartResult::Str(MISSING_OUTPUT_MESSAGE.to_string())),
+                .unwrap_or_else(|| PartResult::Str(MISSING_OUTPUT_MESSAGE.to_string())),
             s.values
                 .part2
-                .unwrap_or(PartResult::Str(MISSING_OUTPUT_MESSAGE.to_string())),
+                .unwrap_or_else(|| PartResult::Str(MISSING_OUTPUT_MESSAGE.to_string())),
         ),
         Err(err) => match err {
             DayError::NoInputFileErr(s) => println!("Error getting file {s}"),
