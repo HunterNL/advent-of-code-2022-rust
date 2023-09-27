@@ -5,15 +5,19 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch",
-            "type": "cppvsdbg",
+            "type": "lldb",
             "request": "launch",
-            "program": "${workspaceRoot}/target/debug/aoc-2022-rust.exe",
+            "name": "Launch",
+            "cargo": {
+                "args": [
+                    "build",
+                ],
+                "filter": {
+                    "kind": "bin"
+                }
+            },
             "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceRoot}",
-            "environment": [],
-            "externalConsole": true
+            "cwd": "${workspaceFolder}"
         }
     ]
 }
