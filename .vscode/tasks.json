@@ -15,7 +15,9 @@
 				"-A",
 				"clippy::missing-const-for-fn",
 				"-A",
-				"clippy::unnecessary_wraps"
+				"clippy::unnecessary_wraps",
+				"-A",
+				"clippy::cast_sign_loss"
 			],
 			"problemMatcher": [
 				"$rustc"

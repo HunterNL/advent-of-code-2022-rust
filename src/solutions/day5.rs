@@ -26,7 +26,7 @@ impl FromStr for Command {
         let origin = scan_i32_from_char_mut(&mut i) - 1;
         let destination = scan_i32_from_char_mut(&mut i) - 1;
 
-        Ok(Command {
+        Ok(Self {
             count,
             origin,
             destination,
@@ -38,9 +38,9 @@ fn scan_i32_from_char_mut(i: &mut Chars<'_>) -> i32 {
     let digit_as_string: String = i
         .by_ref() // Mutate the original iterator
         .skip_while(|c| !c.is_ascii_digit()) // Skip every non-digit
-        .take_while(|c| c.is_ascii_digit()) // Take all the consecutive digits
+        .take_while(char::is_ascii_digit) // Take all the consecutive digits
         .collect();
-    digit_as_string.parse().unwrap()
+    digit_as_string.parse().expect("digits in string")
 }
 
 #[derive(Clone)]
@@ -57,7 +57,10 @@ impl Display for Stacks {
 
 impl Stacks {
     fn print_top_stack(&self) -> String {
-        self.0.iter().map(|v| *v.last().unwrap() as char).collect()
+        self.0
+            .iter()
+            .map(|v| *v.last().expect("Stack to have at least 1 item") as char)
+            .collect()
     }
 }
 
@@ -66,7 +69,9 @@ impl FromStr for Stacks {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let first_line = s.lines().next().expect("First line to exists");
-        let stack_count: i32 = ((first_line.len() + 1) / 4).try_into().unwrap(); // Each line has 4 characters (3+1padding), last column lacks the final padding so we add that to cleanly devide
+        let stack_count: i32 = ((first_line.len() + 1) / 4)
+            .try_into()
+            .expect("character to exist"); // Each line has 4 characters (3+1padding), last column lacks the final padding so we add that to cleanly devide
 
         let mut columns: Vec<Vec<u8>> = Vec::with_capacity(stack_count as usize);
         for _ in 0..stack_count {
@@ -78,15 +83,18 @@ impl FromStr for Stacks {
         s.lines().rev().skip(1).for_each(|line| {
             // For every column left to right
             for n in 0..stack_count {
-                let character = line.as_bytes().get((n as usize) * 4 + 1).unwrap();
+                let character = line
+                    .as_bytes()
+                    .get((n as usize) * 4 + 1)
+                    .expect("A character in range");
                 if character.is_ascii_alphabetic() {
-                    let v = columns.get_mut(n as usize).unwrap();
-                    v.push(character.to_owned())
+                    let v = columns.get_mut(n as usize).expect("A column in range");
+                    v.push(character.to_owned());
                 }
             }
         });
 
-        Ok(Stacks(columns))
+        Ok(Self(columns))
     }
 }
 
@@ -96,7 +104,7 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 
     let commands: Vec<Command> = command_str
         .lines()
-        .map(|l| l.parse::<Command>())
+        .map(str::parse)
         .map(|o| o.expect("valid command"))
         .collect();
 
@@ -116,7 +124,7 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 }
 
 fn execute_p1_crane_commands(s: &mut Stacks, commands: &[Command]) {
-    commands.iter().for_each(|command| {
+    for command in commands {
         for _ in 0..command.count {
             let container =
                 s.0.index_mut(command.origin as usize)
@@ -125,11 +133,11 @@ fn execute_p1_crane_commands(s: &mut Stacks, commands: &[Command]) {
 
             s.0.index_mut(command.destination as usize).push(container);
         }
-    });
+    }
 }
 
 fn execute_p2_crane_commands(s: &mut Stacks, commands: &[Command]) {
-    commands.iter().for_each(|command| {
+    for command in commands {
         let mut arm_stack = vec![];
         for _ in 0..command.count {
             arm_stack.push(
@@ -140,10 +148,12 @@ fn execute_p2_crane_commands(s: &mut Stacks, commands: &[Command]) {
         }
 
         for _ in 0..command.count {
-            let c = arm_stack.pop().unwrap();
+            let c = arm_stack
+                .pop()
+                .expect("arm_stack never to completely empty");
             s.0.index_mut(command.destination as usize).push(c);
         }
-    });
+    }
 }
 
 #[cfg(test)]

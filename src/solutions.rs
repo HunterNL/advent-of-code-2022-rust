@@ -14,10 +14,9 @@ pub enum PartResult {
 
 impl FromStr for PartResult {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Ok(match value.parse::<i32>() {
-            Ok(i) => Self::Int(i),
-            Err(_) => Self::Str(value.to_string()),
-        })
+        Ok(value
+            .parse::<i32>()
+            .map_or_else(|_| Self::Str(value.to_string()), Self::Int))
     }
 
     type Err = ();
@@ -34,15 +33,17 @@ pub struct DayOutput {
     part2: Option<PartResult>,
 }
 
-impl From<&str> for DayOutput {
-    fn from(value: &str) -> Self {
-        let (left, right) = value.split_once(',').unwrap();
+impl TryFrom<&str> for DayOutput {
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let (left, right) = value.split_once(',').ok_or("Error splitting string")?;
 
-        Self {
+        Ok(Self {
             part1: left.parse().ok(),
             part2: right.parse().ok(),
-        }
+        })
     }
+
+    type Error = &'static str;
 }
 
 pub struct SolutionOutput {
@@ -179,8 +180,8 @@ mod tests {
     impl Display for Part {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                Part::Part1 => write!(f, "Part 1"),
-                Part::Part2 => write!(f, "Part 2"),
+                Self::Part1 => write!(f, "Part 1"),
+                Self::Part2 => write!(f, "Part 2"),
             }
         }
     }
@@ -195,17 +196,30 @@ mod tests {
         fn from(value: TestError) -> Self {
             match value {
                 TestError::Failure(part, expected, actual) => {
-                    format!("{} Expected {} got {}", part, expected, actual)
+                    format!("{part} Expected {expected} got {actual}")
                 }
                 TestError::NoResult => "No result".to_owned(),
-                TestError::NoInputFile(s) => format!("No input file {}", s),
+                TestError::NoInputFile(s) => format!("No input file {s}"),
             }
         }
     }
 
-    fn get_solution(day_number: i32) -> Result<DayOutput, NoInputFileErr> {
+    enum NoSolutionError {
+        NoFile,
+        ParseFailure,
+    }
+
+    fn get_solution(day_number: i32) -> Result<DayOutput, NoSolutionError> {
         let path = format!("./data/solution/day{day_number}.txt");
-        read_file(&path).map(|str| DayOutput::from(str.as_ref()))
+        // read_file(&path).map(|str| DayOutput::try_from(str.as_ref())).
+
+        match read_file(&path) {
+            Ok(file_content) => match DayOutput::try_from(file_content.as_ref()) {
+                Ok(dayout) => Ok(dayout),
+                Err(_) => Err(NoSolutionError::ParseFailure),
+            },
+            Err(_) => Err(NoSolutionError::NoFile),
+        }
     }
 
     fn compare_result(
@@ -225,8 +239,8 @@ mod tests {
     pub fn test_day(day_number: i32, solution: DayFn) -> Result<(), String> {
         let input =
             get_input(day_number).map_err(|file_error| TestError::NoInputFile(file_error.path))?;
-        let expected = get_solution(day_number)?;
-        let actual = solution(&input).map_err(|e| e.0.to_string())?;
+        let expected = get_solution(day_number).map_err(|_| "Error getting solution")?;
+        let actual = solution(&input).map_err(|e| e.0)?;
 
         compare_result(expected.part1, actual.part1, Part::Part1)?;
         compare_result(expected.part2, actual.part2, Part::Part2)?;
