@@ -1,13 +1,26 @@
-use std::{fmt::Display, fs, io::Read, time};
+use std::{fmt::Display, fs, io::Read, str::FromStr, time};
 
 mod day1;
 mod day2;
 mod day3;
 mod day4;
+mod day5;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PartResult {
     Int(i32),
+    Str(String),
+}
+
+impl FromStr for PartResult {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Ok(match value.parse::<i32>() {
+            Ok(i) => Self::Int(i),
+            Err(_) => Self::Str(value.to_string()),
+        })
+    }
+
+    type Err = ();
 }
 
 impl From<i32> for PartResult {
@@ -23,23 +36,11 @@ pub struct DayOutput {
 
 impl From<&str> for DayOutput {
     fn from(value: &str) -> Self {
-        let parsed_values: Vec<i32> = value
-            .split(',')
-            .filter_map(|v| v.parse::<i32>().ok())
-            .collect();
-
-        // Abort if we've ended up with anything other than 2 values
-        if parsed_values.len() != 2 {
-            return Self {
-                part1: None,
-                part2: None,
-            };
-        }
+        let (left, right) = value.split_once(',').unwrap();
 
         Self {
-            #[allow(clippy::get_first)]
-            part1: parsed_values.get(0).map(|&f| -> PartResult { f.into() }),
-            part2: parsed_values.get(1).map(|&f| -> PartResult { f.into() }),
+            part1: left.parse().ok(),
+            part2: right.parse().ok(),
         }
     }
 }
@@ -102,6 +103,7 @@ pub fn run() {
     print_result(run_day(2, day2::solve));
     print_result(run_day(3, day3::solve));
     print_result(run_day(4, day4::solve));
+    print_result(run_day(5, day5::solve));
 }
 
 impl Display for PartResult {
@@ -110,7 +112,8 @@ impl Display for PartResult {
             f,
             "{}",
             match self {
-                Self::Int(a) => a,
+                Self::Int(a) => a.to_string(),
+                Self::Str(b) => b.to_string(),
             }
         )
     }
@@ -202,14 +205,6 @@ mod tests {
 
     fn get_solution(day_number: i32) -> Result<DayOutput, NoInputFileErr> {
         let path = format!("./data/solution/day{day_number}.txt");
-        // read_file(&path).map_or(
-        //     DayOutput {
-        //         part1: None,
-        //         part2: None,
-        //     },
-        //     |f| DayOutput::from(f.as_ref()),
-        // )
-
         read_file(&path).map(|str| DayOutput::from(str.as_ref()))
     }
 
