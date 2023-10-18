@@ -71,7 +71,7 @@ impl NodeRef {
             Node::File { parent, .. } | Node::Folder { parent, .. } => parent.clone(),
         }
     }
-    fn get_children(&self) -> RefCell<HashMap<String, NodeRef>> {
+    fn get_children(&self) -> RefCell<HashMap<String, Self>> {
         match self.0.as_ref() {
             Node::File { .. } => panic!("File doesn't have children"),
             Node::Folder { children, .. } => children.clone(),
@@ -234,7 +234,7 @@ mod tests {
         let fs = fun(input.as_ref());
         let size = fs.calc_size();
 
-        assert_eq!(size, 48381165);
+        assert_eq!(size, 48_381_165);
 
         let countcell = Cell::new(0);
         sum_size(&fs, &countcell);
