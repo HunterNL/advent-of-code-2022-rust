@@ -1,5 +1,5 @@
 use std::{
-    cell::{Cell, RefCell},
+    cell::{Cell, OnceCell, RefCell},
     collections::HashMap,
     rc::Rc,
 };
@@ -11,7 +11,7 @@ enum Node {
         size: i32,
     },
     Folder {
-        size: Cell<Option<i32>>,
+        size: OnceCell<i32>,
         children: RefCell<HashMap<String, NodeRef>>,
     },
 }
@@ -34,7 +34,7 @@ impl NodeRef {
     fn add_child(&self, path: impl Into<String>, size: Option<i32>, is_dir: bool) {
         let child: Node = if is_dir {
             Node::Folder {
-                size: Cell::new(None),
+                size: OnceCell::new(),
                 children: RefCell::new(HashMap::new()),
             }
         } else {
@@ -46,9 +46,7 @@ impl NodeRef {
         match self.0.as_ref() {
             Node::File { .. } => panic!("Cannot add child to a file"),
             Node::Folder { children, .. } => {
-                children
-                    .borrow_mut()
-                    .insert(path.into(), NodeRef::new(child));
+                children.borrow_mut().insert(path.into(), Self::new(child));
             }
         }
     }
@@ -57,21 +55,24 @@ impl NodeRef {
     fn calc_size(&self) -> i32 {
         match self.0.as_ref() {
             Node::File { size, .. } => *size,
-            Node::Folder { size, children, .. } => match size.get() {
-                Some(a) => a,
-                None => {
-                    let newsize = children.borrow().iter().map(|f| f.1.calc_size()).sum();
-                    size.set(Some(newsize)); // Bit aw
-                    newsize
-                }
-            },
+            Node::Folder { size, children, .. } => *size.get_or_init(|| {
+                children
+                    .borrow()
+                    .iter()
+                    .map(|(_, noderef)| noderef.calc_size())
+                    .sum()
+            }),
         }
     }
 
-    fn get_child(&self, path: impl Into<String>) -> NodeRef {
+    fn get_child(&self, path: impl Into<String>) -> Self {
         match self.0.as_ref() {
             Node::File { .. } => panic!("File doesn't have children"),
-            Node::Folder { children, .. } => children.borrow().get(&path.into()).unwrap().clone(),
+            Node::Folder { children, .. } => children
+                .borrow()
+                .get(&path.into())
+                .expect("map to contain given child")
+                .clone(),
         }
     }
 }
@@ -102,15 +103,17 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 fn sum_size(fs: &NodeRef, count: &Cell<i32>) {
     match fs.0.as_ref() {
         Node::File { .. } => (),
-        Node::Folder { size, children, .. } => match (size).get() {
-            Some(c) => {
-                if c <= 100_000 {
-                    count.set(count.get() + c);
-                };
-                children.borrow().iter().for_each(|f| sum_size(f.1, count));
-            }
-            None => panic!("Size should be known by now"),
-        },
+        Node::Folder { size, children, .. } => {
+            let size = *size.get().expect("Size should be known at this point, if not NodeRef::calc_size should have been called first");
+
+            if size <= 100_000 {
+                count.set(count.get() + size);
+            };
+            children
+                .borrow()
+                .iter()
+                .for_each(|(_, noderef)| sum_size(noderef, count));
+        }
     }
 }
 
@@ -118,7 +121,7 @@ fn collect_fs_to_vec(fs: &NodeRef, v: &mut Vec<i32>) {
     match fs.0.as_ref() {
         Node::File { .. } => (),
         Node::Folder { size, children, .. } => {
-            v.push(size.get().expect("size to exist"));
+            v.push(*size.get().expect("size to exist"));
             children
                 .borrow()
                 .iter()
@@ -146,7 +149,7 @@ fn find_dir_to_delete(fs: &NodeRef, occupied_space: i32) -> i32 {
 
 fn fun(input: &str) -> NodeRef {
     let node = Node::Folder {
-        size: Cell::new(None),
+        size: OnceCell::new(),
         children: RefCell::new(HashMap::new()),
     };
 
@@ -165,7 +168,10 @@ fn fun(input: &str) -> NodeRef {
                 }
                 _ => {
                     let (_, dirname) = f.split_at(5);
-                    let child = dirs.last().unwrap().get_child(dirname).clone();
+                    let child = dirs
+                        .last()
+                        .expect("Dirs to contain an item")
+                        .get_child(dirname);
                     dirs.push(child);
                 }
             }
@@ -173,10 +179,14 @@ fn fun(input: &str) -> NodeRef {
             let (left, right) = f.split_once(' ').expect("line to split into two");
 
             if left == "dir" {
-                dirs.last().unwrap().add_child(right, None, true);
+                dirs.last()
+                    .expect("Dirs to contain an item")
+                    .add_child(right, None, true);
             } else {
                 let size: i32 = left.parse().expect("left side to parse into int");
-                dirs.last().unwrap().add_child(right, Some(size), false);
+                dirs.last()
+                    .expect("Dirs to contain an item")
+                    .add_child(right, Some(size), false);
             }
         }
     });
