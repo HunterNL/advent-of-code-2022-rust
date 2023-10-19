@@ -8,17 +8,21 @@ use super::{DayOutput, LogicError, PartResult};
 
 enum Node {
     File {
-        parent: Option<NodeRef>,
         size: i32,
     },
     Folder {
-        parent: Option<NodeRef>,
         size: Cell<Option<i32>>,
         children: RefCell<HashMap<String, NodeRef>>,
     },
 }
 
 struct NodeRef(Rc<Node>);
+
+impl NodeRef {
+    fn new(n: Node) -> Self {
+        Self(Rc::new(n))
+    }
+}
 
 impl Clone for NodeRef {
     fn clone(&self) -> Self {
@@ -30,13 +34,11 @@ impl NodeRef {
     fn add_child(&self, path: impl Into<String>, size: Option<i32>, is_dir: bool) {
         let child: Node = if is_dir {
             Node::Folder {
-                parent: Some(self.clone()),
                 size: Cell::new(None),
                 children: RefCell::new(HashMap::new()),
             }
         } else {
             Node::File {
-                parent: Some(self.clone()),
                 size: size.expect("File must have size provided"),
             }
         };
@@ -46,7 +48,7 @@ impl NodeRef {
             Node::Folder { children, .. } => {
                 children
                     .borrow_mut()
-                    .insert(path.into(), Self(Rc::new(child)));
+                    .insert(path.into(), NodeRef::new(child));
             }
         }
     }
@@ -66,15 +68,10 @@ impl NodeRef {
         }
     }
 
-    fn get_parent(&self) -> Option<Self> {
-        match self.0.as_ref() {
-            Node::File { parent, .. } | Node::Folder { parent, .. } => parent.clone(),
-        }
-    }
-    fn get_children(&self) -> RefCell<HashMap<String, Self>> {
+    fn get_child(&self, path: impl Into<String>) -> NodeRef {
         match self.0.as_ref() {
             Node::File { .. } => panic!("File doesn't have children"),
-            Node::Folder { children, .. } => children.clone(),
+            Node::Folder { children, .. } => children.borrow().get(&path.into()).unwrap().clone(),
         }
     }
 }
@@ -105,7 +102,7 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 fn sum_size(fs: &NodeRef, count: &Cell<i32>) {
     match fs.0.as_ref() {
         Node::File { .. } => (),
-        Node::Folder { size, children, .. } => match (*size).get() {
+        Node::Folder { size, children, .. } => match (size).get() {
             Some(c) => {
                 if c <= 100_000 {
                     count.set(count.get() + c);
@@ -149,48 +146,42 @@ fn find_dir_to_delete(fs: &NodeRef, occupied_space: i32) -> i32 {
 
 fn fun(input: &str) -> NodeRef {
     let node = Node::Folder {
-        parent: None,
         size: Cell::new(None),
         children: RefCell::new(HashMap::new()),
     };
-    let root: NodeRef = NodeRef(Rc::new(node));
 
-    let mut current_node = NodeRef(Rc::clone(&root.0));
+    let mut dirs = vec![NodeRef::new(node)];
 
     input.lines().for_each(|f| {
         if f.as_bytes()[0] == b'$' {
             // println!("is cmd");
             match f {
-                "$ cd /" => current_node = NodeRef(Rc::clone(&root.0)),
+                "$ cd /" => {
+                    dirs.drain(1..);
+                }
                 "$ ls" => (),
                 "$ cd .." => {
-                    current_node = current_node.get_parent().expect("node to have parent");
+                    dirs.pop();
                 }
                 _ => {
-                    // cd $dirname
                     let (_, dirname) = f.split_at(5);
-
-                    current_node = current_node
-                        .get_children()
-                        .borrow()
-                        .get(dirname)
-                        .expect("dir to have child")
-                        .clone();
+                    let child = dirs.last().unwrap().get_child(dirname).clone();
+                    dirs.push(child);
                 }
             }
         } else {
             let (left, right) = f.split_once(' ').expect("line to split into two");
 
             if left == "dir" {
-                current_node.add_child(right, None, true);
+                dirs.last().unwrap().add_child(right, None, true);
             } else {
                 let size: i32 = left.parse().expect("left side to parse into int");
-                current_node.add_child(right, Some(size), false);
+                dirs.last().unwrap().add_child(right, Some(size), false);
             }
         }
     });
 
-    root
+    dirs.remove(0)
 }
 
 #[cfg(test)]
