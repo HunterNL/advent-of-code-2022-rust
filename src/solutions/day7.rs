@@ -2,6 +2,7 @@ use std::{
     cell::{Cell, OnceCell, RefCell},
     collections::HashMap,
     rc::Rc,
+    str::FromStr,
 };
 
 use super::{DayOutput, LogicError, PartResult};
@@ -17,6 +18,57 @@ enum Node {
 }
 
 struct NodeRef(Rc<Node>);
+
+impl FromStr for NodeRef {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let node = Node::Folder {
+            size: OnceCell::new(),
+            children: RefCell::new(HashMap::new()),
+        };
+
+        let mut dirs = vec![Self::new(node)];
+
+        s.lines().map(str::parse::<Line>).for_each(|entry| {
+            let cmd = entry.expect("Succesfull parse");
+            match cmd {
+                Line::Command(cmd) => match cmd {
+                    Command::ChRoot => {
+                        dirs.drain(1..);
+                    }
+                    Command::ChUp => {
+                        dirs.pop();
+                    }
+                    Command::ChDir(dir_name) => {
+                        let child = dirs
+                            .last()
+                            .expect("Dirs to contain an item")
+                            .get_child(dir_name);
+                        dirs.push(child);
+                    }
+                    Command::Ls => (),
+                },
+                Line::DirEntry(dir_entry) => match dir_entry {
+                    DirEntry::File(name, size) => {
+                        dirs.last().expect("Dirs to contain an item").add_child(
+                            name,
+                            Some(size),
+                            false,
+                        );
+                    }
+                    DirEntry::Dir(name) => {
+                        dirs.last()
+                            .expect("Dirs to contain an item")
+                            .add_child(name, None, true);
+                    }
+                },
+            }
+        });
+
+        Ok(dirs.remove(0))
+    }
+}
 
 impl NodeRef {
     fn new(n: Node) -> Self {
@@ -80,13 +132,67 @@ impl NodeRef {
 enum Command {
     ChRoot,
     ChUp,
-    ChDir,
+    ChDir(String),
     Ls,
+}
+
+impl FromStr for Command {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "$ cd /" => Self::ChRoot,
+
+            "$ ls" => Self::Ls,
+            "$ cd .." => Self::ChUp,
+            _ => {
+                let (_, dirname) = s.split_at(5);
+                Self::ChDir(dirname.into())
+            }
+        })
+    }
+}
+
+enum DirEntry {
+    File(String, i32),
+    Dir(String),
+}
+
+impl FromStr for DirEntry {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (left, right) = s.split_once(' ').expect("line to split into two");
+
+        if left == "dir" {
+            Ok(Self::Dir(right.into()))
+        } else {
+            let size: i32 = left.parse().expect("left side to parse into int");
+            Ok(Self::File(right.into(), size))
+        }
+    }
+}
+
+enum Line {
+    Command(Command),
+    DirEntry(DirEntry),
+}
+
+impl FromStr for Line {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.as_bytes()[0] == b'$' {
+            Ok(Self::Command(s.parse::<Command>()?))
+        } else {
+            Ok(Self::DirEntry(s.parse::<DirEntry>()?))
+        }
+    }
 }
 
 // https://adventofcode.com/2022/day/7
 pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
-    let fs = fun(input);
+    let fs: NodeRef = input.parse().expect("Succesfull parse");
     let total_size = fs.calc_size();
 
     let countcell = Cell::new(0);
@@ -147,53 +253,6 @@ fn find_dir_to_delete(fs: &NodeRef, occupied_space: i32) -> i32 {
         .expect("find to succeed")
 }
 
-fn fun(input: &str) -> NodeRef {
-    let node = Node::Folder {
-        size: OnceCell::new(),
-        children: RefCell::new(HashMap::new()),
-    };
-
-    let mut dirs = vec![NodeRef::new(node)];
-
-    input.lines().for_each(|f| {
-        if f.as_bytes()[0] == b'$' {
-            // println!("is cmd");
-            match f {
-                "$ cd /" => {
-                    dirs.drain(1..);
-                }
-                "$ ls" => (),
-                "$ cd .." => {
-                    dirs.pop();
-                }
-                _ => {
-                    let (_, dirname) = f.split_at(5);
-                    let child = dirs
-                        .last()
-                        .expect("Dirs to contain an item")
-                        .get_child(dirname);
-                    dirs.push(child);
-                }
-            }
-        } else {
-            let (left, right) = f.split_once(' ').expect("line to split into two");
-
-            if left == "dir" {
-                dirs.last()
-                    .expect("Dirs to contain an item")
-                    .add_child(right, None, true);
-            } else {
-                let size: i32 = left.parse().expect("left side to parse into int");
-                dirs.last()
-                    .expect("Dirs to contain an item")
-                    .add_child(right, Some(size), false);
-            }
-        }
-    });
-
-    dirs.remove(0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,7 +291,7 @@ mod tests {
         ]
         .join("\n");
 
-        let fs = fun(input.as_ref());
+        let fs: NodeRef = input.parse().expect("Succesfull parse");
         let size = fs.calc_size();
 
         assert_eq!(size, 48_381_165);
