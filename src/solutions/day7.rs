@@ -1,8 +1,4 @@
-use std::{
-    cell::{Cell, OnceCell},
-    collections::HashMap,
-    str::FromStr,
-};
+use std::{cell::OnceCell, collections::HashMap, str::FromStr};
 
 use super::{DayOutput, LogicError, PartResult};
 
@@ -198,25 +194,25 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     let fs: Node = input.parse().expect("Succesfull parse");
     let total_size = fs.calc_size();
 
-    let countcell = Cell::new(0);
-    sum_size(&fs, &countcell);
+    let mut count: i32 = 0;
+    sum_size(&fs, &mut count);
 
     let del_size = find_dir_to_delete(&fs, total_size);
 
     Ok(DayOutput {
-        part1: Some(PartResult::Int(countcell.get())),
+        part1: Some(PartResult::Int(count)),
         part2: Some(PartResult::Int(del_size)),
     })
 }
 
-fn sum_size(fs: &Node, count: &Cell<i32>) {
+fn sum_size(fs: &Node, count: &mut i32) {
     match fs {
         Node::File { .. } => (),
         Node::Folder { size, children, .. } => {
             let size = *size.get().expect("Size should be known at this point, if not NodeRef::calc_size should have been called first");
 
             if size <= 100_000 {
-                count.set(count.get() + size);
+                *count += size;
             };
             children
                 .iter()
@@ -295,10 +291,10 @@ mod tests {
 
         assert_eq!(size, 48_381_165);
 
-        let countcell = Cell::new(0);
-        sum_size(&fs, &countcell);
+        let mut count: i32 = 0;
+        sum_size(&fs, &mut count);
 
-        assert_eq!(countcell.get(), 95437);
+        assert_eq!(count, 95437);
 
         Ok(())
     }
