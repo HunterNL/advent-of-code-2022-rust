@@ -60,12 +60,12 @@ impl FromStr for Node {
                         .last_mut()
                         .expect("Dirs to contain an item")
                         .1
-                        .add_child(name, Self::new(&NodeKind::File, size)),
+                        .add_child(name, Self::new_file(size)),
                     DirEntry::Dir(name) => {
                         dirs.last_mut()
                             .expect("Dirs to contain an item")
                             .1
-                            .add_child(name, Self::new(&NodeKind::Folder, 0));
+                            .add_child(name, Self::new_folder());
                     }
                 },
             }
@@ -80,19 +80,14 @@ impl FromStr for Node {
     }
 }
 
-enum NodeKind {
-    File,
-    Folder,
-}
-
 impl Node {
-    fn new(kind: &NodeKind, size: i32) -> Self {
-        match kind {
-            NodeKind::File => Self::File { size },
-            NodeKind::Folder => Self::Folder {
-                size: OnceCell::new(), // Note ignoring the argument, unlike files, folder size is not known at creation. calc_size can figure that out
-                children: HashMap::new(),
-            },
+    fn new_file(size: i32) -> Self {
+        Self::File { size }
+    }
+    fn new_folder() -> Self {
+        Self::Folder {
+            size: OnceCell::new(), // Note ignoring the argument, unlike files, folder size is not known at creation. calc_size can figure that out
+            children: HashMap::new(),
         }
     }
 
