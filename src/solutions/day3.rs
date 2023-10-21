@@ -27,7 +27,7 @@ impl Rucksack {
             .find_map(|left_char| {
                 self.right
                     .chars()
-                    .find_map(|right_char| (left_char == right_char).then_some(right_char))
+                    .find(|right_char| (left_char == *right_char))
             })
             .and_then(char_priority)
     }
@@ -60,7 +60,7 @@ fn find_badge(sacks: &[Rucksack]) -> char {
 
     smallest
         .chars()
-        .find_map(|ch| s.iter().skip(1).all(|sack| sack.contains(ch)).then_some(ch))
+        .find(|ch| s.iter().skip(1).all(|sack| sack.contains(*ch)))
         .expect("Smallest character")
 }
 
