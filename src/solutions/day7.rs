@@ -1,5 +1,5 @@
 use std::{
-    cell::{Cell, OnceCell, RefCell},
+    cell::{Cell, OnceCell},
     collections::HashMap,
     str::FromStr,
 };
@@ -12,13 +12,13 @@ enum Node {
     },
     Folder {
         size: OnceCell<i32>,
-        children: RefCell<HashMap<String, Node>>,
+        children: HashMap<String, Node>,
     },
 }
 // Pops a directory from the end of the vector and move it into the new last entry in the vector
 fn pop_and_restore_dir(dirs: &mut Vec<(String, Node)>) {
     let entry = dirs.pop().expect("dirs to have an entry");
-    dirs.last()
+    dirs.last_mut()
         .expect("dirs to have a last")
         .1
         .add_child(entry.0, entry.1);
@@ -30,7 +30,7 @@ impl FromStr for Node {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let root = Self::Folder {
             size: OnceCell::new(),
-            children: RefCell::new(HashMap::new()),
+            children: HashMap::new(),
         };
 
         // Vector of all opened folders
@@ -51,7 +51,7 @@ impl FromStr for Node {
                     Command::ChUp => pop_and_restore_dir(&mut dirs),
                     Command::ChDir(dir_name) => {
                         let child = dirs
-                            .last()
+                            .last_mut()
                             .expect("Dirs to contain an item")
                             .1
                             .remove_child(dir_name);
@@ -61,12 +61,12 @@ impl FromStr for Node {
                 },
                 Line::DirEntry(dir_entry) => match dir_entry {
                     DirEntry::File(name, size) => dirs
-                        .last()
+                        .last_mut()
                         .expect("Dirs to contain an item")
                         .1
                         .add_child(name, Self::new(&NodeKind::File, size)),
                     DirEntry::Dir(name) => {
-                        dirs.last()
+                        dirs.last_mut()
                             .expect("Dirs to contain an item")
                             .1
                             .add_child(name, Self::new(&NodeKind::Folder, 0));
@@ -95,16 +95,16 @@ impl Node {
             NodeKind::File => Self::File { size },
             NodeKind::Folder => Self::Folder {
                 size: OnceCell::new(), // Note ignoring the argument, unlike files, folder size is not known at creation. calc_size can figure that out
-                children: RefCell::new(HashMap::new()),
+                children: HashMap::new(),
             },
         }
     }
 
-    fn add_child(&self, path: impl Into<String>, n: Self) {
+    fn add_child(&mut self, path: impl Into<String>, n: Self) {
         match self {
             Self::File { .. } => panic!("Cannot add child to a file"),
             Self::Folder { children, .. } => {
-                children.borrow_mut().insert(path.into(), n);
+                children.insert(path.into(), n);
             }
         }
     }
@@ -115,7 +115,6 @@ impl Node {
             Self::File { size, .. } => *size,
             Self::Folder { size, children, .. } => *size.get_or_init(|| {
                 children
-                    .borrow()
                     .iter()
                     .map(|(_, noderef)| noderef.calc_size())
                     .sum()
@@ -123,11 +122,10 @@ impl Node {
         }
     }
 
-    fn remove_child(&self, path: impl Into<String>) -> (String, Self) {
+    fn remove_child(&mut self, path: impl Into<String>) -> (String, Self) {
         match self {
             Self::File { .. } => panic!("File doesn't have children"),
             Self::Folder { children, .. } => children
-                .borrow_mut()
                 .remove_entry(&path.into())
                 .expect("map to contain given child"),
         }
@@ -221,7 +219,6 @@ fn sum_size(fs: &Node, count: &Cell<i32>) {
                 count.set(count.get() + size);
             };
             children
-                .borrow()
                 .iter()
                 .for_each(|(_, noderef)| sum_size(noderef, count));
         }
@@ -233,10 +230,7 @@ fn collect_fs_to_vec(fs: &Node, v: &mut Vec<i32>) {
         Node::File { .. } => (),
         Node::Folder { size, children, .. } => {
             v.push(*size.get().expect("size to exist"));
-            children
-                .borrow()
-                .iter()
-                .for_each(|f| collect_fs_to_vec(f.1, v));
+            children.iter().for_each(|f| collect_fs_to_vec(f.1, v));
         }
     }
 }
