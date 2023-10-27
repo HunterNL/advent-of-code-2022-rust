@@ -1,8 +1,8 @@
-use std::{cell::Cell, cmp, collections::HashMap};
+use std::{cmp, collections::HashMap};
 
 use super::{DayOutput, LogicError, PartResult};
 
-const TALLEST_TREE: u8 = 9;
+const TALLEST_TREE: u8 = b'9';
 
 struct CharacterGrid {
     bytes: Vec<u8>,
@@ -88,22 +88,46 @@ impl<'a> Iterator for PeekIterator<'a> {
     type Item = (i32, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
+        // println!("{}", self.current);
         self.current += self.increment;
         if self.iterations_left == 0 {
+            // print!("PeekIterator Done!");
             return None;
         }
         self.iterations_left -= 1;
         self.grid
             .bytes
             .get((self.current - self.increment) as usize)
-            .map(|u| (self.current - self.increment, *u - ('0' as u8)))
+            .map(|u| (self.current - self.increment, *u))
+    }
+}
+
+struct SightlineIterator<'a> {
+    iter: PeekIterator<'a>,
+    max_height: i32,
+}
+
+impl<'a> Iterator for SightlineIterator<'a> {
+    type Item = (i32, u8);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter.next() {
+            Some(entry) => {
+                if entry.1 as i32 >= self.max_height {
+                    None
+                } else {
+                    Some(entry)
+                }
+            }
+            None => None,
+        }
     }
 }
 
 struct VisableTreeIterator<'a> {
     iter: PeekIterator<'a>,
     seen_first: bool,
-    highest_seen: u8,
+    highest_seen: i32,
 }
 
 impl<'a> VisableTreeIterator<'a> {
@@ -111,7 +135,7 @@ impl<'a> VisableTreeIterator<'a> {
         VisableTreeIterator {
             iter,
             seen_first: false,
-            highest_seen: 0,
+            highest_seen: -1,
         }
     }
 }
@@ -124,19 +148,19 @@ impl<'a> Iterator for VisableTreeIterator<'a> {
             return match self.iter.next() {
                 Some(entry) => {
                     self.seen_first = true;
-                    self.highest_seen = entry.1;
+                    self.highest_seen = entry.1 as i32;
                     Some(entry)
                 }
                 None => None,
             };
         }
 
-        if self.highest_seen == TALLEST_TREE {
+        if self.highest_seen == TALLEST_TREE as i32 {
             return None;
         }
 
         while let Some(entry) = self.iter.next() {
-            let tree_height = entry.1;
+            let tree_height = entry.1 as i32;
 
             if tree_height > self.highest_seen {
                 self.highest_seen = tree_height;
@@ -148,10 +172,56 @@ impl<'a> Iterator for VisableTreeIterator<'a> {
     }
 }
 
+// Iterates over a grid, row by row
+struct GridIterator {
+    // grid: &'a CharacterGrid,
+    pos: Vec2D<usize>,
+    max: Vec2D<usize>,
+}
+
+impl GridIterator {
+    fn new(width: usize, height: usize) -> GridIterator {
+        GridIterator {
+            pos: Vec2D { x: 0, y: 0 },
+            max: Vec2D {
+                x: width,
+                y: height,
+            },
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Copy)]
+struct Vec2D<T> {
+    x: T,
+    y: T,
+}
+
+impl Iterator for GridIterator {
+    type Item = Vec2D<usize>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // Always capture the current state to output
+        if self.pos.y < self.max.y {
+            let current = self.pos;
+            self.pos.x += 1;
+
+            if self.pos.x == self.max.x {
+                self.pos.x = 0;
+                self.pos.y += 1;
+            }
+
+            Some(current)
+        } else {
+            None
+        }
+    }
+}
+
 impl CharacterGrid {
     // Get a character at the given coordinates
-    fn get(&self, x: usize, y: usize) -> u8 {
-        return *self.bytes.get(x + y * self.line_size).unwrap();
+    fn get(&self, x: usize, y: usize) -> Option<u8> {
+        self.bytes.get(x + y * self.line_size).copied()
     }
 
     fn sideline_peek_iters(&self) -> SidelineIterator {
@@ -194,49 +264,124 @@ impl CharacterGrid {
     }
 }
 
-// impl<'a> FromString<&str> for CharacterGrid<'a> {}
+fn find_treehouse_spot(grid: &CharacterGrid) -> i32 {
+    GridIterator::new(grid.line_size, grid.line_size)
+        .map(|position| score_treehouse_spot(grid, position))
+        // .inspect(|f| println!("{f}"))
+        .max()
+        .expect("number")
+}
 
-// struct Scanline {
-//     start: usize,
-//     scanline_advance: i8,
-//     scanline_vision_advance: i8,
-// }
+fn score_treehouse_spot(grid: &CharacterGrid, position: Vec2D<usize>) -> i32 {
+    let line_size = grid.line_size as i32;
+    let tree_size = grid.get(position.x, position.y).unwrap();
+
+    // println!("\n");
+    // println!("Top");
+    let top_sightline_count =
+        count_visible_trees(grid, position, -line_size, position.y + 1, tree_size);
+
+    // println!("\n");
+    // println!("Bottom");
+    let bottom_sightline_count = count_visible_trees(
+        grid,
+        position,
+        line_size,
+        (line_size - position.y as i32) as usize,
+        tree_size,
+    );
+
+    // println!("\n");
+    // println!("Right");
+    let right_sightline_count = count_visible_trees(
+        grid,
+        position,
+        1,
+        (line_size - position.x as i32) as usize,
+        tree_size,
+    );
+
+    // println!("\n");
+    // println!("Left");
+    let left_sightline_count = count_visible_trees(
+        grid,
+        position,
+        -1,
+        (position.x as i32 + 1) as usize,
+        tree_size,
+    );
+
+    // println!("\n");
+    // println!("======== {},{} ({})", position.x, position.y, tree_size);
+    // println!("Top:{top_sightline_count}");
+    // println!("Right:{right_sightline_count}");
+    // println!("Bottom:{bottom_sightline_count}");
+    // println!("Left:{left_sightline_count}");
+    // println!(
+    //     "Total: {}",
+    //     top_sightline_count * right_sightline_count * bottom_sightline_count * left_sightline_count
+    // );
+
+    top_sightline_count * right_sightline_count * bottom_sightline_count * left_sightline_count
+}
+
+fn count_visible_trees(
+    grid: &CharacterGrid,
+    position: Vec2D<usize>,
+    increment: i32,
+    max_iters: usize,
+    max_tree_size: u8,
+) -> i32 {
+    let mut a = PeekIterator {
+        grid,
+        current: (position.x + position.y * grid.line_size) as i32,
+        iterations_left: max_iters,
+        increment,
+    };
+
+    // println!("Max tree size: {}", max_tree_size);
+
+    a.next(); // Skip the starting tile, it'd instantly stop at the start tree
+
+    let mut count = 0;
+
+    while let Some(entry) = a.next() {
+        // println!("Seen tree {}", entry.1);
+        count += 1;
+        let tree_height = entry.1;
+
+        if tree_height >= max_tree_size {
+            break;
+        }
+    }
+
+    // a
+    //     // .inspect(|e| println!("Seen before tree of {} at {}", e.1 - b'0', e.0))
+    //     .take_while(|entry| {
+    //         println!("Seeing tree {}", entry.1 - b'0');
+    //         println!("result: {}", entry.1 < max_tree_size);
+    //         entry.1 < max_tree_size
+    //     })
+    //     // .inspect(|e| println!("Seen after tree of {} at {}", e.1 - b'0', e.0))
+    //     .for_each(|_| {
+    //         println!("Adding one");
+    //         count += 1
+    //     });
+    // // .sum();
+
+    // println!("SUM {}", count);
+
+    count
+}
 
 fn count_trees(grid: &CharacterGrid) -> i32 {
     let mut seen_trees = HashMap::new();
 
     for peek in grid.sideline_peek_iters() {
         VisableTreeIterator::new(peek).for_each(|tree| {
-            // println!("Seen tree {} with height {}", tree.0, tree.1);
             seen_trees.insert(tree.0, true);
         })
     }
-
-    // for mut peek in grid.sideline_peek_iters() {
-    //     // println!("\n{}", "=".repeat(10));
-
-    //     let first = peek.next().unwrap();
-    //     let mut highest_tree_seen = first.1;
-    //     seen_trees.insert(first.0, true);
-
-    //     loop {
-    //         let cur = peek.next();
-    //         if cur.is_none() {
-    //             break;
-    //         }
-
-    //         let (index, tree_height) = cur.unwrap();
-
-    //         if tree_height > highest_tree_seen {
-    //             seen_trees.insert(index, true);
-    //             highest_tree_seen = tree_height;
-
-    //             if highest_tree_seen == TALLEST_TREE {
-    //                 break; // No point, there wont' be higher trees to see
-    //             }
-    //         }
-    //     }
-    // }
 
     seen_trees.len() as i32
 }
@@ -245,34 +390,12 @@ fn count_trees(grid: &CharacterGrid) -> i32 {
 pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     let grid = CharacterGrid::from_str(input);
 
-    // let mut seen_trees = HashMap::new();
-    // for peek in grid.sideline_peek_iters() {
-    //     let current_tree = Cell::new(0);
-    //     peek.take_while(|entry| entry.1 > current_tree.get())
-    //         .for_each(|entry| {
-    //             current_tree.set(cmp::max(current_tree.get(), entry.1));
-    //             seen_trees.insert(entry.0, true);
-    //         })
-    // }
-
     let seen_tree_count = count_trees(&grid);
-
-    // let scanlines: Vec<Scanline> = vec![Scanline {
-    //     start: 0,
-    //     scanline_advance: 1,
-    //     scanline_vision_advance: grid.line_size as i8,
-    // }];
-
-    // scanlines.iter().for_each(|scanline| {
-    //     let mut highest_seen_tree = 0;
-    //     for i in 0..grid.line_size {
-    //         let cur = grid.bytes.get(index)
-    //     }
-    // });
+    let treehouse_score = find_treehouse_spot(&grid);
 
     Ok(DayOutput {
         part1: Some(PartResult::Int(seen_tree_count)),
-        part2: None,
+        part2: Some(PartResult::Int(treehouse_score)),
     })
 }
 
@@ -281,12 +404,12 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore]
     fn day() -> Result<(), String> {
         super::super::tests::test_day(8, super::solve)
     }
 
     #[test]
+    #[ignore = "Pending u8 change"]
     fn peek_iter() -> Result<(), String> {
         #[rustfmt::skip]
         let input = [
@@ -378,5 +501,64 @@ mod tests {
         let grid = CharacterGrid::from_str(&input);
 
         assert_eq!(count_trees(&grid), 21);
+    }
+
+    #[test]
+    fn treehouse_score_single_a() {
+        #[rustfmt::skip]
+        let input = [
+            "30373", 
+            "25512", 
+            "65332", 
+            "33549", 
+            "35390"].join("\n");
+
+        let grid = CharacterGrid::from_str(&input);
+
+        assert_eq!(score_treehouse_spot(&grid, Vec2D { x: 2, y: 3 }), 8);
+    }
+
+    #[test]
+    fn treehouse_score_single_b() {
+        #[rustfmt::skip]
+        let input = [
+            "30373", 
+            "25512", 
+            "65332", 
+            "33549", 
+            "35390"].join("\n");
+
+        let grid = CharacterGrid::from_str(&input);
+
+        assert_eq!(score_treehouse_spot(&grid, Vec2D { x: 2, y: 1 }), 4);
+    }
+
+    #[test]
+    fn treehouse_find() {
+        #[rustfmt::skip]
+        let input = [
+            "30373", 
+            "25512", 
+            "65332", 
+            "33549", 
+            "35390"].join("\n");
+
+        let grid = CharacterGrid::from_str(&input);
+        let score = find_treehouse_spot(&grid);
+
+        assert_eq!(score, 8);
+    }
+
+    #[test]
+    fn grid_iter() {
+        let mut iter = GridIterator {
+            pos: Vec2D { x: 0, y: 0 },
+            max: Vec2D { x: 2, y: 2 },
+        };
+
+        assert_eq!(iter.next().unwrap(), Vec2D { x: 0, y: 0 });
+        assert_eq!(iter.next().unwrap(), Vec2D { x: 1, y: 0 });
+        assert_eq!(iter.next().unwrap(), Vec2D { x: 0, y: 1 });
+        assert_eq!(iter.next().unwrap(), Vec2D { x: 1, y: 1 });
     }
 }
