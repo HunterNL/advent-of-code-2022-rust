@@ -17,17 +17,16 @@ enum Step {
     Right,
 }
 
-// Iterates over every edge of the grid, emitting PeekIterators
-
-struct SidelineIterator<'a> {
+// Iterates over every edge of the grid, emitting GridLineIterators
+struct EdgeIterator<'a> {
     grid: &'a CharacterGrid,
     step: Step,
     index: usize,
     iterations_left: usize,
 }
 
-impl<'a> Iterator for SidelineIterator<'a> {
-    type Item = PeekIterator<'a>;
+impl<'a> Iterator for EdgeIterator<'a> {
+    type Item = GridLineIterator<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         // Increment = how to get to the next edge
@@ -40,13 +39,13 @@ impl<'a> Iterator for SidelineIterator<'a> {
 
         // Peek direction is how the inner iterator advances, it is orthagonal to self.increment
         let peek_direction = match self.step {
-            Step::Top => line_size as i32,
-            Step::Bottom => -(line_size as i32),
-            Step::Left => 1,
-            Step::Right => -1,
+            Step::Top => self.grid.increment_for_direction(Direction::Down),
+            Step::Bottom => self.grid.increment_for_direction(Direction::Up),
+            Step::Left => self.grid.increment_for_direction(Direction::Right),
+            Step::Right => self.grid.increment_for_direction(Direction::Left),
         };
 
-        let out = PeekIterator {
+        let out = GridLineIterator {
             grid: self.grid,
             current: self.index as i32,
             iterations_left: line_size,
@@ -56,6 +55,7 @@ impl<'a> Iterator for SidelineIterator<'a> {
         self.index += increment;
         self.iterations_left -= 1;
 
+        // If we've reached the end of an edge, switch to the next edge or stop
         if self.iterations_left == 0 {
             self.iterations_left = line_size;
             self.index = 0;
@@ -74,15 +74,15 @@ impl<'a> Iterator for SidelineIterator<'a> {
     }
 }
 
-// Iterates inward from an edge
-struct PeekIterator<'a> {
+// Iterates in a straight line over a grid
+struct GridLineIterator<'a> {
     grid: &'a CharacterGrid,
     current: i32,
     iterations_left: usize,
     increment: i32,
 }
 
-impl<'a> Iterator for PeekIterator<'a> {
+impl<'a> Iterator for GridLineIterator<'a> {
     type Item = (i32, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -101,7 +101,7 @@ impl<'a> Iterator for PeekIterator<'a> {
 }
 
 struct SightlineIterator<'a> {
-    iter: PeekIterator<'a>,
+    iter: GridLineIterator<'a>,
     max_height: i32,
 }
 
@@ -123,13 +123,13 @@ impl<'a> Iterator for SightlineIterator<'a> {
 }
 
 struct VisableTreeIterator<'a> {
-    iter: PeekIterator<'a>,
+    iter: GridLineIterator<'a>,
     seen_first: bool,
     highest_seen: i32,
 }
 
 impl<'a> VisableTreeIterator<'a> {
-    fn new(iter: PeekIterator) -> VisableTreeIterator<'_> {
+    fn new(iter: GridLineIterator) -> VisableTreeIterator<'_> {
         VisableTreeIterator {
             iter,
             seen_first: false,
@@ -172,7 +172,6 @@ impl<'a> Iterator for VisableTreeIterator<'a> {
 
 // Iterates over a grid, row by row
 struct GridIterator {
-    // grid: &'a CharacterGrid,
     pos: Vec2D<usize>,
     max: Vec2D<usize>,
 }
@@ -216,14 +215,30 @@ impl Iterator for GridIterator {
     }
 }
 
+enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
 impl CharacterGrid {
     // Get a character at the given coordinates
     fn get(&self, x: usize, y: usize) -> Option<u8> {
         self.bytes.get(x + y * self.line_size).copied()
     }
 
-    fn sideline_peek_iters(&self) -> SidelineIterator {
-        SidelineIterator {
+    fn increment_for_direction(&self, dir: Direction) -> i32 {
+        match dir {
+            Direction::Up => -(self.line_size as i32),
+            Direction::Down => self.line_size as i32,
+            Direction::Left => -1,
+            Direction::Right => 1,
+        }
+    }
+
+    fn sideline_peek_iters(&self) -> EdgeIterator {
+        EdgeIterator {
             grid: self,
             step: Step::Top,
             index: 0,
@@ -253,8 +268,6 @@ impl CharacterGrid {
             .map(|line| line.bytes())
             .for_each(|f| v.extend(f));
 
-        //2: Ensure all newlines have the same length
-
         Self {
             bytes: v,
             line_size: size,
@@ -274,13 +287,9 @@ fn score_treehouse_spot(grid: &CharacterGrid, position: Vec2D<usize>) -> i32 {
     let line_size = grid.line_size as i32;
     let tree_size = grid.get(position.x, position.y).unwrap();
 
-    // println!("\n");
-    // println!("Top");
     let top_sightline_count =
         count_visible_trees(grid, position, -line_size, position.y + 1, tree_size);
 
-    // println!("\n");
-    // println!("Bottom");
     let bottom_sightline_count = count_visible_trees(
         grid,
         position,
@@ -289,8 +298,6 @@ fn score_treehouse_spot(grid: &CharacterGrid, position: Vec2D<usize>) -> i32 {
         tree_size,
     );
 
-    // println!("\n");
-    // println!("Right");
     let right_sightline_count = count_visible_trees(
         grid,
         position,
@@ -299,8 +306,6 @@ fn score_treehouse_spot(grid: &CharacterGrid, position: Vec2D<usize>) -> i32 {
         tree_size,
     );
 
-    // println!("\n");
-    // println!("Left");
     let left_sightline_count = count_visible_trees(
         grid,
         position,
@@ -308,17 +313,6 @@ fn score_treehouse_spot(grid: &CharacterGrid, position: Vec2D<usize>) -> i32 {
         (position.x as i32 + 1) as usize,
         tree_size,
     );
-
-    // println!("\n");
-    // println!("======== {},{} ({})", position.x, position.y, tree_size);
-    // println!("Top:{top_sightline_count}");
-    // println!("Right:{right_sightline_count}");
-    // println!("Bottom:{bottom_sightline_count}");
-    // println!("Left:{left_sightline_count}");
-    // println!(
-    //     "Total: {}",
-    //     top_sightline_count * right_sightline_count * bottom_sightline_count * left_sightline_count
-    // );
 
     top_sightline_count * right_sightline_count * bottom_sightline_count * left_sightline_count
 }
@@ -330,21 +324,18 @@ fn count_visible_trees(
     max_iters: usize,
     max_tree_size: u8,
 ) -> i32 {
-    let mut a = PeekIterator {
+    let mut a = GridLineIterator {
         grid,
         current: (position.x + position.y * grid.line_size) as i32,
         iterations_left: max_iters,
         increment,
     };
 
-    // println!("Max tree size: {}", max_tree_size);
-
     a.next(); // Skip the starting tile, it'd instantly stop at the start tree
 
     let mut count = 0;
 
     for entry in a {
-        // println!("Seen tree {}", entry.1);
         count += 1;
         let tree_height = entry.1;
 
@@ -352,22 +343,6 @@ fn count_visible_trees(
             break;
         }
     }
-
-    // a
-    //     // .inspect(|e| println!("Seen before tree of {} at {}", e.1 - b'0', e.0))
-    //     .take_while(|entry| {
-    //         println!("Seeing tree {}", entry.1 - b'0');
-    //         println!("result: {}", entry.1 < max_tree_size);
-    //         entry.1 < max_tree_size
-    //     })
-    //     // .inspect(|e| println!("Seen after tree of {} at {}", e.1 - b'0', e.0))
-    //     .for_each(|_| {
-    //         println!("Adding one");
-    //         count += 1
-    //     });
-    // // .sum();
-
-    // println!("SUM {}", count);
 
     count
 }
@@ -407,8 +382,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Pending u8 change"]
-    fn peek_iter() -> Result<(), String> {
+    fn grid_edge_iter() -> Result<(), String> {
         #[rustfmt::skip]
         let input = [
             "30373", 
@@ -422,13 +396,13 @@ mod tests {
 
         // First vertical
         assert_eq!(
-            vec![3, 2, 6, 3, 3],
+            vec![b'3', b'2', b'6', b'3', b'3'],
             iter.next().unwrap().map(|a| a.1).collect::<Vec<u8>>()
         );
 
         // Second vertical
         assert_eq!(
-            vec![0, 5, 5, 3, 5],
+            vec![b'0', b'5', b'5', b'3', b'5'],
             iter.next().unwrap().map(|a| a.1).collect::<Vec<u8>>()
         );
 
@@ -439,13 +413,13 @@ mod tests {
 
         //First from the bottom row
         assert_eq!(
-            vec![3, 3, 6, 2, 3],
+            vec![b'3', b'3', b'6', b'2', b'3'],
             iter.next().unwrap().map(|a| a.1).collect::<Vec<u8>>()
         );
 
         //Second on bottom row
         assert_eq!(
-            vec![5, 3, 5, 5, 0],
+            vec![b'5', b'3', b'5', b'5', b'0'],
             iter.next().unwrap().map(|a| a.1).collect::<Vec<u8>>()
         );
 
@@ -456,13 +430,13 @@ mod tests {
 
         // First horizontal
         assert_eq!(
-            vec![3, 0, 3, 7, 3],
+            vec![b'3', b'0', b'3', b'7', b'3'],
             iter.next().unwrap().map(|a| a.1).collect::<Vec<u8>>()
         );
 
         // Second horizontal
         assert_eq!(
-            vec![2, 5, 5, 1, 2],
+            vec![b'2', b'5', b'5', b'1', b'2'],
             iter.next().unwrap().map(|a| a.1).collect::<Vec<u8>>()
         );
 
@@ -473,13 +447,13 @@ mod tests {
 
         // First horizontal from the right
         assert_eq!(
-            vec![3, 7, 3, 0, 3],
+            vec![b'3', b'7', b'3', b'0', b'3'],
             iter.next().unwrap().map(|a| a.1).collect::<Vec<u8>>()
         );
 
         // Second horizontal from the right
         assert_eq!(
-            vec![2, 1, 5, 5, 2],
+            vec![b'2', b'1', b'5', b'5', b'2'],
             iter.next().unwrap().map(|a| a.1).collect::<Vec<u8>>()
         );
 
