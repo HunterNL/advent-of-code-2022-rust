@@ -57,12 +57,21 @@
 				"-A",
 				"clippy::unnecessary_wraps",
 				"-A",
-				"clippy::cast_sign_loss",
+				"clippy::cast_sign_loss"
 			],
 			"problemMatcher": [
 				"$rustc"
 			],
 			"label": "rust: cargo clippy fix"
+		},
+		{
+			"type": "cargo",
+			"command": "test",
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "test",
+			"label": "rust: cargo test"
 		}
 	]
 }

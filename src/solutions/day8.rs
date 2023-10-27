@@ -1,4 +1,4 @@
-use std::{cmp, collections::HashMap};
+use std::collections::HashMap;
 
 use super::{DayOutput, LogicError, PartResult};
 
@@ -34,10 +34,8 @@ impl<'a> Iterator for SidelineIterator<'a> {
         // Top and bottom advance by one, left and right increment a whole line
         let line_size = self.grid.line_size;
         let increment = match self.step {
-            Step::Top => 1,
-            Step::Bottom => 1,
-            Step::Left => self.grid.line_size,
-            Step::Right => self.grid.line_size,
+            Step::Top | Step::Bottom => 1,
+            Step::Left | Step::Right => self.grid.line_size,
         };
 
         // Peek direction is how the inner iterator advances, it is orthagonal to self.increment
@@ -159,7 +157,7 @@ impl<'a> Iterator for VisableTreeIterator<'a> {
             return None;
         }
 
-        while let Some(entry) = self.iter.next() {
+        for entry in self.iter.by_ref() {
             let tree_height = entry.1 as i32;
 
             if tree_height > self.highest_seen {
@@ -180,8 +178,8 @@ struct GridIterator {
 }
 
 impl GridIterator {
-    fn new(width: usize, height: usize) -> GridIterator {
-        GridIterator {
+    fn new(width: usize, height: usize) -> Self {
+        Self {
             pos: Vec2D { x: 0, y: 0 },
             max: Vec2D {
                 x: width,
@@ -257,7 +255,7 @@ impl CharacterGrid {
 
         //2: Ensure all newlines have the same length
 
-        CharacterGrid {
+        Self {
             bytes: v,
             line_size: size,
         }
@@ -345,7 +343,7 @@ fn count_visible_trees(
 
     let mut count = 0;
 
-    while let Some(entry) = a.next() {
+    for entry in a {
         // println!("Seen tree {}", entry.1);
         count += 1;
         let tree_height = entry.1;
