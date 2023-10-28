@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::vec2d::Vec2D;
+
 use super::{DayOutput, LogicError, PartResult};
 
 const TALLEST_TREE: u8 = b'9';
@@ -186,12 +188,6 @@ impl GridIterator {
             },
         }
     }
-}
-
-#[derive(Clone, PartialEq, Eq, Debug, Copy)]
-struct Vec2D<T> {
-    x: T,
-    y: T,
 }
 
 impl Iterator for GridIterator {

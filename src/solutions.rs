@@ -8,6 +8,7 @@ mod day5;
 mod day6;
 mod day7;
 mod day8;
+mod day9;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PartResult {
@@ -113,6 +114,7 @@ pub fn run() {
     print_result(run_day(6, day6::solve));
     print_result(run_day(7, day7::solve));
     print_result(run_day(8, day8::solve));
+    print_result(run_day(9, day9::solve));
 }
 
 impl Display for PartResult {
