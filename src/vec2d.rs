@@ -30,11 +30,11 @@ impl Add for Vec2D<i32> {
 
 impl Vec2D<i32> {
     pub fn distance_manhatten(&self, b: &Vec2D<i32>) -> i32 {
-        return (self.x - b.x).abs() + (self.y - b.y).abs();
+        (self.x - b.x).abs() + (self.y - b.y).abs()
     }
 
     pub fn abs(&self) -> Self {
-        Vec2D {
+        Self {
             x: self.x.abs(),
             y: self.y.abs(),
         }

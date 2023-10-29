@@ -1,6 +1,7 @@
 use std::{fmt::Display, fs, io::Read, str::FromStr, time};
 
 mod day1;
+mod day10;
 mod day2;
 mod day3;
 mod day4;
@@ -115,6 +116,7 @@ pub fn run() {
     print_result(run_day(7, day7::solve));
     print_result(run_day(8, day8::solve));
     print_result(run_day(9, day9::solve));
+    print_result(run_day(10, day10::solve));
 }
 
 impl Display for PartResult {
