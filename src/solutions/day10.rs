@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use std::{
+    fmt::{Display, Write},
+    str::FromStr,
+};
 
 use super::{DayOutput, LogicError, PartResult};
 
@@ -6,6 +9,9 @@ enum Instruction {
     Noop,
     Addx(i32),
 }
+
+const CRT_WIDTH: usize = 40;
+const CRT_ROWS: usize = 6;
 
 impl FromStr for Instruction {
     type Err = String;
@@ -25,6 +31,35 @@ struct Cpu {
     program_counter: usize,
     cycle_delay: usize,
     cycle_count: usize,
+}
+
+struct Crt {
+    screen: [bool; CRT_ROWS * CRT_WIDTH],
+}
+
+impl Display for Crt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, b) in self.screen.iter().enumerate() {
+            if (i % CRT_WIDTH) == 0 {
+                f.write_char('\n')?;
+            }
+            if *b {
+                f.write_char('#')?;
+            } else {
+                f.write_char('.')?;
+            }
+        }
+        f.write_char('\n')?;
+        Ok(())
+    }
+}
+
+impl Crt {
+    fn draw(&mut self, cpu: &Cpu) {
+        if ((cpu.cycle_count % CRT_WIDTH) as i32).abs_diff(cpu.register) <= 1 {
+            self.screen[cpu.cycle_count] = true
+        }
+    }
 }
 
 impl Cpu {
@@ -53,6 +88,10 @@ impl Cpu {
         }
     }
 
+    fn is_done(&self) -> bool {
+        self.program_counter == self.program.len()
+    }
+
     fn cycle(&mut self) {
         self.cycle_count += 1;
 
@@ -78,6 +117,34 @@ impl Cpu {
 
 // https://adventofcode.com/2022/day/10
 pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
+    let signal_sum = get_signal_strength(input);
+    let _ = crt_message(input);
+
+    Ok(DayOutput {
+        part1: Some(PartResult::Int(signal_sum)),
+        part2: Some(PartResult::Str("it works".to_owned())),
+    })
+}
+
+fn crt_message(input: &str) -> String {
+    let mut cpu = Cpu::new_with_program(
+        input
+            .lines()
+            .map(|line| line.parse::<Instruction>().unwrap()),
+    );
+    let mut crt = Crt {
+        screen: [false; CRT_ROWS * CRT_WIDTH],
+    };
+
+    while !cpu.is_done() {
+        cpu.cycle();
+        crt.draw(&cpu)
+    }
+
+    crt.to_string()
+}
+
+fn get_signal_strength(input: &str) -> i32 {
     let mut cpu = Cpu::new_with_program(
         input
             .lines()
@@ -85,28 +152,30 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     );
 
     let mut signal_sum = 0;
-    cpu.run_to_count(19); // 20
+    cpu.run_to_count(19);
+    // 20
     signal_sum += cpu.signal_strenght();
 
-    cpu.cycle_times(40); // 60
+    cpu.cycle_times(40);
+    // 60
     signal_sum += cpu.signal_strenght();
 
-    cpu.cycle_times(40); // 100
+    cpu.cycle_times(40);
+    // 100
     signal_sum += cpu.signal_strenght();
 
-    cpu.cycle_times(40); //140
+    cpu.cycle_times(40);
+    //140
     signal_sum += cpu.signal_strenght();
 
-    cpu.cycle_times(40); // 180
+    cpu.cycle_times(40);
+    // 180
     signal_sum += cpu.signal_strenght();
 
-    cpu.cycle_times(40); // 220
+    cpu.cycle_times(40);
+    // 220
     signal_sum += cpu.signal_strenght();
-
-    Ok(DayOutput {
-        part1: Some(PartResult::Int(signal_sum)),
-        part2: None,
-    })
+    signal_sum
 }
 
 #[cfg(test)]
