@@ -3,13 +3,15 @@ use std::str::FromStr;
 
 use super::{DayOutput, LogicError, PartResult};
 
+#[derive(Clone)]
 enum Operator {
     Add,
     Multiply,
 }
 
+#[derive(Clone)]
 enum Operand {
-    Literal(u32),
+    Literal(u64),
     Old,
 }
 
@@ -40,13 +42,13 @@ impl FromStr for Operator {
 }
 
 struct Monkey {
-    items: VecDeque<u32>,
+    items: VecDeque<u64>,
     behaviour: MonkeyBehaviour,
     items_processed: u32,
 }
 
 struct ItemThrow {
-    items: Vec<u32>,
+    items: Vec<u64>,
     target: u32,
 }
 
@@ -59,7 +61,12 @@ impl Monkey {
         }
     }
 
-    fn take_turn(&mut self, false_throw: &mut ItemThrow, true_throw: &mut ItemThrow) {
+    fn take_turn(
+        &mut self,
+        false_throw: &mut ItemThrow,
+        true_throw: &mut ItemThrow,
+        div: DivideMode,
+    ) {
         false_throw.target = self.behaviour.false_target;
         true_throw.target = self.behaviour.true_target;
 
@@ -70,7 +77,17 @@ impl Monkey {
                 .expect("Queue to stop before it empties");
 
             let item = self.worry_level_operation(item);
-            let item = item / 3;
+
+            let item = item
+                / match div {
+                    DivideMode::By3 => 3,
+                    DivideMode::ByGCD(n) => 1,
+                };
+
+            let item = match div {
+                DivideMode::By3 => item,
+                DivideMode::ByGCD(c) => item % c,
+            };
 
             let is_divisable = (item % self.behaviour.test_div) == 0;
 
@@ -84,7 +101,7 @@ impl Monkey {
         }
     }
 
-    fn worry_level_operation(&self, level: u32) -> u32 {
+    fn worry_level_operation(&self, level: u64) -> u64 {
         let operand = match self.behaviour.operation_operand {
             Operand::Literal(n) => n,
             Operand::Old => level,
@@ -107,12 +124,13 @@ impl Monkey {
 }
 
 /// Stateless monkey settings
+#[derive(Clone)]
 struct MonkeyBehaviour {
     monkey_id: u32,
-    starting_items: Vec<u32>,
+    starting_items: Vec<u64>,
     operation_operator: Operator,
     operation_operand: Operand,
-    test_div: u32,
+    test_div: u64,
     true_target: u32,
     false_target: u32,
 }
@@ -130,12 +148,39 @@ struct MonkeyGame {
     monkeys: Vec<Monkey>,
     true_trow: ItemThrow,
     false_throw: ItemThrow,
+    divide_mode: DivideMode,
+}
+
+impl FromStr for MonkeyGame {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        todo!()
+    }
+}
+
+// struct lazy_gcd
+
+#[derive(Clone, Copy)]
+enum DivideMode {
+    By3,
+    ByGCD(u64),
+}
+
+fn gcd(iter: impl Iterator<Item = u64>) -> u64 {
+    iter.reduce(|a, b| a * b).unwrap()
 }
 
 impl MonkeyGame {
-    fn new(monkeys: Vec<Monkey>) -> MonkeyGame {
+    fn new(monkeys: Vec<Monkey>, p2_div_mode: bool) -> MonkeyGame {
+        let g = gcd(monkeys.iter().map(|m| m.behaviour.test_div));
+        println!("{g}");
+
         MonkeyGame {
-            monkeys,
+            divide_mode: match p2_div_mode {
+                true => DivideMode::ByGCD(g),
+                false => DivideMode::By3,
+            },
             true_trow: ItemThrow {
                 items: Vec::new(),
                 target: 0,
@@ -144,15 +189,17 @@ impl MonkeyGame {
                 items: Vec::new(),
                 target: 0,
             },
+            monkeys,
         }
     }
 
     fn run_round(&mut self) {
         for i in 0..self.monkeys.len() {
-            self.monkeys
-                .get_mut(i)
-                .unwrap()
-                .take_turn(&mut self.false_throw, &mut self.true_trow);
+            self.monkeys.get_mut(i).unwrap().take_turn(
+                &mut self.false_throw,
+                &mut self.true_trow,
+                self.divide_mode,
+            );
             {
                 let true_monkey = self
                     .monkeys
@@ -176,10 +223,15 @@ impl MonkeyGame {
         // for monkey in self.monkeys.iter_mut() {}
     }
 
-    fn monkey_business(&self) -> u32 {
+    fn monkey_business(&self) -> u64 {
         let mut v: Vec<u32> = self.monkeys.iter().map(|m| m.items_processed).collect();
+
         v.sort();
-        v.pop().unwrap() * v.pop().unwrap()
+
+        let i1: u64 = v.pop().unwrap() as u64;
+        let i2: u64 = v.pop().unwrap() as u64;
+
+        i1 * i2
     }
 }
 
@@ -199,7 +251,7 @@ impl FromStr for MonkeyBehaviour {
 
         let starting_line = line_iter.next().unwrap();
         let starting_items_comma_seperated: String = starting_line.chars().skip(18).collect();
-        let starting_items: Vec<u32> = starting_items_comma_seperated
+        let starting_items: Vec<_> = starting_items_comma_seperated
             .split(',')
             .map(|s| s.trim().parse().unwrap())
             .collect();
@@ -225,7 +277,7 @@ impl FromStr for MonkeyBehaviour {
             starting_items,
             operation_operator: operator,
             operation_operand: operand,
-            test_div: divider,
+            test_div: divider as u64,
             true_target,
             false_target,
         })
@@ -236,27 +288,27 @@ impl FromStr for MonkeyBehaviour {
 
 // https://adventofcode.com/2022/day/11
 pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
-    let monkeys: Vec<Monkey> = input
+    let behaviours: Vec<_> = input
         .split("\n\n")
         .map(|str| str.parse::<MonkeyBehaviour>().unwrap())
-        .map(Monkey::new)
         .collect();
-    let mut game = MonkeyGame::new(monkeys);
 
-    let a = game.monkeys.get(0).unwrap().behaviour.test_div;
-    let a = game
-        .monkeys
-        .iter()
-        .skip(1)
-        .fold(a, |a, b| a * b.behaviour.test_div);
+    let mut p1_game = MonkeyGame::new(
+        behaviours.clone().into_iter().map(Monkey::new).collect(),
+        false,
+    );
+    let mut p2_game = MonkeyGame::new(behaviours.into_iter().map(Monkey::new).collect(), true);
 
     for _ in 0..20 {
-        game.run_round();
+        p1_game.run_round();
+    }
+    for _ in 0..10_000 {
+        p2_game.run_round();
     }
 
     Ok(DayOutput {
-        part1: Some(PartResult::Int(game.monkey_business() as i32)),
-        part2: None,
+        part1: Some(PartResult::UInt(p1_game.monkey_business())),
+        part2: Some(PartResult::UInt(p2_game.monkey_business())),
     })
 }
 

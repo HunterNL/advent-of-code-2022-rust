@@ -16,6 +16,7 @@ mod day9;
 pub enum PartResult {
     Int(i32),
     Str(String),
+    UInt(u64),
 }
 
 static MISSING_OUTPUT_MESSAGE: &str = "<MISSING>";
@@ -129,6 +130,7 @@ impl Display for PartResult {
             match self {
                 Self::Int(a) => a.to_string(),
                 Self::Str(b) => b.to_string(),
+                Self::UInt(c) => c.to_string(),
             }
         )
     }
