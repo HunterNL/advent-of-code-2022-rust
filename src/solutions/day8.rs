@@ -21,7 +21,7 @@ impl<'a> Iterator for SightlineIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter.next() {
             Some(entry) => {
-                if *entry.1 as i32 >= self.max_height {
+                if i32::from(*entry.1) >= self.max_height {
                     None
                 } else {
                     Some(entry)
@@ -56,19 +56,19 @@ impl<'a> Iterator for VisableTreeIterator<'a> {
             return match self.iter.next() {
                 Some(entry) => {
                     self.seen_first = true;
-                    self.highest_seen = *entry.1 as i32;
+                    self.highest_seen = i32::from(*entry.1);
                     Some(entry)
                 }
                 None => None,
             };
         }
 
-        if self.highest_seen == TALLEST_TREE as i32 {
+        if self.highest_seen == i32::from(TALLEST_TREE) {
             return None;
         }
 
         for entry in self.iter.by_ref() {
-            let tree_height = *entry.1 as i32;
+            let tree_height = i32::from(*entry.1);
 
             if tree_height > self.highest_seen {
                 self.highest_seen = tree_height;
@@ -122,7 +122,7 @@ fn count_trees(grid: &Grid<u8>) -> i32 {
     for peek in grid.edges() {
         VisableTreeIterator::new(peek).for_each(|tree| {
             seen_trees.insert(tree.0, true);
-        })
+        });
     }
 
     seen_trees.len() as i32
@@ -168,7 +168,7 @@ mod tests {
             vec![b'3', b'2', b'6', b'3', b'3'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -177,7 +177,7 @@ mod tests {
             vec![b'0', b'5', b'5', b'3', b'5'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -191,7 +191,7 @@ mod tests {
             vec![b'3', b'3', b'6', b'2', b'3'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -200,7 +200,7 @@ mod tests {
             vec![b'5', b'3', b'5', b'5', b'0'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -214,7 +214,7 @@ mod tests {
             vec![b'3', b'0', b'3', b'7', b'3'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -223,7 +223,7 @@ mod tests {
             vec![b'2', b'5', b'5', b'1', b'2'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -237,7 +237,7 @@ mod tests {
             vec![b'3', b'7', b'3', b'0', b'3'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -246,7 +246,7 @@ mod tests {
             vec![b'2', b'1', b'5', b'5', b'2'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 

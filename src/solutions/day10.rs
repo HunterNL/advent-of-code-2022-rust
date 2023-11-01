@@ -18,11 +18,11 @@ impl FromStr for Instruction {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "noop" {
-            return Ok(Instruction::Noop);
+            return Ok(Self::Noop);
         }
         let (_, num) = s.split_once(' ').ok_or("Couldn't split")?;
 
-        Ok(Instruction::Addx(num.parse().unwrap()))
+        Ok(Self::Addx(num.parse().unwrap()))
     }
 }
 struct Cpu {
@@ -57,14 +57,14 @@ impl Display for Crt {
 impl Crt {
     fn draw(&mut self, cpu: &Cpu) {
         if ((cpu.cycle_count % CRT_WIDTH) as i32).abs_diff(cpu.register) <= 1 {
-            self.screen[cpu.cycle_count] = true
+            self.screen[cpu.cycle_count] = true;
         }
     }
 }
 
 impl Cpu {
     fn new_with_program(program: impl Iterator<Item = Instruction>) -> Self {
-        Cpu {
+        Self {
             cycle_count: 0,
             cycle_delay: 0,
             register: 1,
@@ -75,7 +75,7 @@ impl Cpu {
 
     fn cycle_times(&mut self, n: usize) {
         for _i in 0..n {
-            self.cycle()
+            self.cycle();
         }
     }
     fn signal_strenght(&self) -> i32 {
@@ -84,7 +84,7 @@ impl Cpu {
 
     fn run_to_count(&mut self, count: usize) {
         while self.cycle_count < count {
-            self.cycle()
+            self.cycle();
         }
     }
 
@@ -138,7 +138,7 @@ fn crt_message(input: &str) -> String {
 
     while !cpu.is_done() {
         cpu.cycle();
-        crt.draw(&cpu)
+        crt.draw(&cpu);
     }
 
     crt.to_string()

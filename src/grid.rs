@@ -75,7 +75,7 @@ impl<T> Grid<T> {
         };
 
         GridLineIterator {
-            grid: &self,
+            grid: self,
             current: (start.x + start.y * self.line_size) as i32,
             iterations_left,
             increment,
@@ -139,7 +139,7 @@ mod tests {
             vec![b'3', b'2', b'6', b'3', b'3'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -148,7 +148,7 @@ mod tests {
             vec![b'0', b'5', b'5', b'3', b'5'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -162,7 +162,7 @@ mod tests {
             vec![b'3', b'3', b'6', b'2', b'3'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -171,7 +171,7 @@ mod tests {
             vec![b'5', b'3', b'5', b'5', b'0'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -185,7 +185,7 @@ mod tests {
             vec![b'3', b'0', b'3', b'7', b'3'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -194,7 +194,7 @@ mod tests {
             vec![b'2', b'5', b'5', b'1', b'2'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -208,7 +208,7 @@ mod tests {
             vec![b'3', b'7', b'3', b'0', b'3'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 
@@ -217,7 +217,7 @@ mod tests {
             vec![b'2', b'1', b'5', b'5', b'2'],
             iter.next()
                 .unwrap()
-                .map(|a| a.1.clone())
+                .map(|a| *a.1)
                 .collect::<Vec<u8>>()
         );
 

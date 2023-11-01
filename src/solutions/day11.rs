@@ -20,10 +20,10 @@ impl FromStr for Operand {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
-            "old" => Operand::Old,
-            _ => Operand::Literal(
+            "old" => Self::Old,
+            _ => Self::Literal(
                 s.parse()
-                    .map_err(|_| format!("Error parsing literal {}", s).to_owned())?,
+                    .map_err(|_| format!("Error parsing literal {s}"))?,
             ),
         })
     }
@@ -34,8 +34,8 @@ impl FromStr for Operator {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "+" => Ok(Operator::Add),
-            "*" => Ok(Operator::Multiply),
+            "+" => Ok(Self::Add),
+            "*" => Ok(Self::Multiply),
             &_ => Err("Unknown string".to_owned()),
         }
     }
@@ -53,8 +53,8 @@ struct ItemThrow {
 }
 
 impl Monkey {
-    fn new(behaviour: MonkeyBehaviour) -> Monkey {
-        Monkey {
+    fn new(behaviour: MonkeyBehaviour) -> Self {
+        Self {
             items: VecDeque::from(behaviour.starting_items.clone()),
             behaviour,
             items_processed: 0,
@@ -81,7 +81,7 @@ impl Monkey {
             let item = item
                 / match div {
                     DivideMode::By3 => 3,
-                    DivideMode::ByGCD(n) => 1,
+                    DivideMode::ByGCD(_) => 1,
                 };
 
             let item = match div {
@@ -92,12 +92,12 @@ impl Monkey {
             let is_divisable = (item % self.behaviour.test_div) == 0;
 
             if is_divisable {
-                true_throw.items.push(item)
+                true_throw.items.push(item);
             } else {
-                false_throw.items.push(item)
+                false_throw.items.push(item);
             }
 
-            self.items_processed += 1
+            self.items_processed += 1;
         }
     }
 
@@ -117,7 +117,7 @@ impl Monkey {
         throw
             .items
             .iter()
-            .for_each(|item| self.items.push_back(*item))
+            .for_each(|item| self.items.push_back(*item));
     }
 }
 
@@ -136,7 +136,7 @@ struct MonkeyBehaviour {
 fn get_num_from_char_iter(iter: impl Iterator<Item = char>) -> u32 {
     let a: String = iter
         .skip_while(|c| !c.is_ascii_digit())
-        .take_while(|c| c.is_ascii_digit())
+        .take_while(char::is_ascii_digit)
         .collect();
 
     a.parse().unwrap()
@@ -149,16 +149,6 @@ struct MonkeyGame {
     divide_mode: DivideMode,
 }
 
-impl FromStr for MonkeyGame {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        todo!()
-    }
-}
-
-// struct lazy_gcd
-
 #[derive(Clone, Copy)]
 enum DivideMode {
     By3,
@@ -170,10 +160,10 @@ fn gcd(iter: impl Iterator<Item = u64>) -> u64 {
 }
 
 impl MonkeyGame {
-    fn new(monkeys: Vec<Monkey>, p2_div_mode: bool) -> MonkeyGame {
+    fn new(monkeys: Vec<Monkey>, p2_div_mode: bool) -> Self {
         let g = gcd(monkeys.iter().map(|m| m.behaviour.test_div));
 
-        MonkeyGame {
+        Self {
             divide_mode: match p2_div_mode {
                 true => DivideMode::ByGCD(g),
                 false => DivideMode::By3,
@@ -223,10 +213,10 @@ impl MonkeyGame {
     fn monkey_business(&self) -> u64 {
         let mut v: Vec<u32> = self.monkeys.iter().map(|m| m.items_processed).collect();
 
-        v.sort();
+        v.sort_unstable();
 
-        let i1: u64 = v.pop().unwrap() as u64;
-        let i2: u64 = v.pop().unwrap() as u64;
+        let i1: u64 = u64::from(v.pop().unwrap());
+        let i2: u64 = u64::from(v.pop().unwrap());
 
         i1 * i2
     }
@@ -269,12 +259,12 @@ impl FromStr for MonkeyBehaviour {
         let true_target = get_num_from_char_iter(line_iter.next().unwrap().chars());
         let false_target = get_num_from_char_iter(line_iter.next().unwrap().chars());
 
-        Ok(MonkeyBehaviour {
+        Ok(Self {
             monkey_id: id,
             starting_items,
             operation_operator: operator,
             operation_operand: operand,
-            test_div: divider as u64,
+            test_div: u64::from(divider),
             true_target,
             false_target,
         })

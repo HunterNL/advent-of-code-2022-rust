@@ -46,7 +46,7 @@ impl RopeSnake for [Vec2D<i32>] {
 
             let dist_to_head = (head - *tail).abs();
             if dist_to_head.x > 1 || dist_to_head.y > 1 {
-                update_tail_pos(tail, &head)
+                update_tail_pos(tail, &head);
             }
         }
     }

@@ -68,7 +68,7 @@ fn find_badge(sacks: &[Rucksack]) -> char {
 pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     let rucksacks: Result<Vec<Rucksack>, ()> = input.lines().map(TryInto::try_into).collect();
 
-    let rucksacks = rucksacks.map_err(|_| LogicError("Error parsing rucksacks".to_owned()))?;
+    let rucksacks = rucksacks.map_err(|()| LogicError("Error parsing rucksacks".to_owned()))?;
 
     let priority_item_sum = rucksacks
         .iter()
