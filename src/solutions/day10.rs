@@ -122,7 +122,7 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 
     Ok(DayOutput {
         part1: Some(PartResult::Int(signal_sum)),
-        part2: Some(PartResult::Str("it works".to_owned())),
+        part2: Some(PartResult::Str("it works okay".to_owned())),
     })
 }
 

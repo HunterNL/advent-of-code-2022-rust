@@ -107,8 +107,6 @@ impl Monkey {
             Operand::Old => level,
         };
 
-        // println!("{} {}", level, operand);
-
         match self.behaviour.operation_operator {
             Operator::Add => level + operand,
             Operator::Multiply => level * operand,
@@ -174,7 +172,6 @@ fn gcd(iter: impl Iterator<Item = u64>) -> u64 {
 impl MonkeyGame {
     fn new(monkeys: Vec<Monkey>, p2_div_mode: bool) -> MonkeyGame {
         let g = gcd(monkeys.iter().map(|m| m.behaviour.test_div));
-        println!("{g}");
 
         MonkeyGame {
             divide_mode: match p2_div_mode {

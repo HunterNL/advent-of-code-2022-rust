@@ -47,8 +47,8 @@ impl TryFrom<&str> for DayOutput {
         let (left, right) = value.split_once(',').ok_or("Error splitting string")?;
 
         Ok(Self {
-            part1: left.parse().ok(),
-            part2: right.parse().ok(),
+            part1: Some(PartResult::Str(left.to_owned())),
+            part2: Some(PartResult::Str(right.to_owned())),
         })
     }
 
@@ -231,15 +231,13 @@ mod tests {
 
     fn get_solution(day_number: i32) -> Result<DayOutput, NoSolutionError> {
         let path = format!("./data/solution/day{day_number}.txt");
-        // read_file(&path).map(|str| DayOutput::try_from(str.as_ref())).
 
-        match read_file(&path) {
-            Ok(file_content) => match DayOutput::try_from(file_content.as_ref()) {
-                Ok(dayout) => Ok(dayout),
-                Err(_) => Err(NoSolutionError::ParseFailure),
-            },
-            Err(_) => Err(NoSolutionError::NoFile),
-        }
+        let file = read_file(&path).map_err(|_| NoSolutionError::NoFile)?;
+
+        let doe = DayOutput::try_from(file.lines().next().ok_or(NoSolutionError::ParseFailure)?)
+            .map_err(|_| NoSolutionError::ParseFailure)?;
+
+        Ok(doe)
     }
 
     fn compare_result(
@@ -250,7 +248,8 @@ mod tests {
         let e = expected.ok_or(TestError::NoResult)?;
         let i = actual.ok_or(TestError::NoResult)?;
 
-        match e == i {
+        match e.to_string() == i.to_string() {
+            // Ideally we'd decode types and check those, but this works fine
             true => Ok(()),
             false => Err(TestError::Failure(part, e.to_string(), i.to_string())),
         }
