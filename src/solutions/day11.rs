@@ -311,7 +311,6 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn day() -> Result<(), String> {
