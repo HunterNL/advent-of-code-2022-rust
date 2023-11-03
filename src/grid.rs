@@ -264,7 +264,7 @@ impl<T> Grid<T> {
         }
     }
 
-    pub fn iter_with_pos(&mut self) -> impl Iterator<Item = (Vec2D<usize>, &T)> {
+    pub fn iter_with_pos(&self) -> impl Iterator<Item = (Vec2D<usize>, &T)> {
         let grid_iterator = GridIterator::new(self.width, self.height);
         grid_iterator.zip(self.bytes.iter())
     }
