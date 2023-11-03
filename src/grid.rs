@@ -1,6 +1,6 @@
 use std::fmt::{Display, Write};
 
-use crate::vec2d::{self, Vec2D};
+use crate::vec2d::Vec2D;
 
 use self::iterators::{EdgeIterator, GridIterator, GridLineIterator};
 
@@ -119,7 +119,7 @@ impl<T> Grid<T> {
 
     pub fn set(&mut self, pos: &Vec2D<i32>, i: T) {
         let index = self.index_of_position(pos);
-        *self.bytes.get_mut(index).unwrap() = i
+        *self.bytes.get_mut(index).unwrap() = i;
     }
 
     // pub fn size(&self) -> usize {
@@ -145,7 +145,7 @@ impl<T> Grid<T> {
     }
 
     pub fn index_of_position(&self, position: &Vec2D<i32>) -> usize {
-        return position.x as usize + position.y as usize * self.width as usize;
+        position.x as usize + position.y as usize * self.width
     }
 
     pub fn iter(&self) -> GridContentIterator<T> {
@@ -169,12 +169,12 @@ impl<T> Grid<T> {
 
         // Top
         if y > 0 {
-            v.push(Vec2D { x, y: y - 1 })
+            v.push(Vec2D { x, y: y - 1 });
         }
 
         // Bottom
         if y < self.height as i32 - 1 {
-            v.push(Vec2D { x, y: y + 1 })
+            v.push(Vec2D { x, y: y + 1 });
         }
     }
 
@@ -187,7 +187,7 @@ impl<T> Grid<T> {
             if y > 0 {
                 // Topleft
 
-                v.push(Vec2D { x: x - 1, y: y - 1 })
+                v.push(Vec2D { x: x - 1, y: y - 1 });
             }
 
             //Left
@@ -195,7 +195,7 @@ impl<T> Grid<T> {
 
             if y < self.height as i32 - 1 {
                 // Bottomleft
-                v.push(Vec2D { x: x - 1, y: y + 1 })
+                v.push(Vec2D { x: x - 1, y: y + 1 });
             }
         }
 
@@ -205,7 +205,7 @@ impl<T> Grid<T> {
             if y > 0 {
                 // Topright
 
-                v.push(Vec2D { x: x + 1, y: y - 1 })
+                v.push(Vec2D { x: x + 1, y: y - 1 });
             }
 
             //Left
@@ -213,18 +213,18 @@ impl<T> Grid<T> {
 
             if y < self.height as i32 - 1 {
                 // Bottomright
-                v.push(Vec2D { x: x + 1, y: y + 1 })
+                v.push(Vec2D { x: x + 1, y: y + 1 });
             }
         }
 
         // Center top
         if y > 0 {
-            v.push(Vec2D { x, y: y - 1 })
+            v.push(Vec2D { x, y: y - 1 });
         }
 
         // Center bottom
         if y < self.height as i32 - 1 {
-            v.push(Vec2D { x, y: y + 1 })
+            v.push(Vec2D { x, y: y + 1 });
         }
     }
 
@@ -276,7 +276,7 @@ impl<T> Grid<T> {
     }
 
     pub fn take(self) -> Vec<T> {
-        return self.bytes;
+        self.bytes
     }
 }
 

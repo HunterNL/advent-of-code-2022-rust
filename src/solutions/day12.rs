@@ -1,7 +1,6 @@
 use std::{
     cell::Cell,
     collections::{BinaryHeap, HashMap, HashSet},
-    io::{self, stdout, Write},
 };
 
 use crate::{grid::Grid, vec2d::Vec2D};
@@ -103,7 +102,7 @@ fn find_path_down(map: &Grid<u8>) -> usize {
                 pos: *neighbour_position,
                 cost_so_far: node.cost_so_far + movement_cost,
                 parent: Some(current_postion),
-            })
+            });
         });
 
         neighbours.clear();
@@ -123,13 +122,13 @@ fn print_with_coloring_p2(
     let mut frontier_positions = HashSet::new();
     let mut closed_positions = HashSet::new();
 
-    frontier.iter().for_each(|v| {
+    for v in frontier {
         frontier_positions.insert(v.pos);
-    });
+    }
 
-    closed_set.iter().for_each(|v| {
+    for v in closed_set {
         closed_positions.insert(v.0);
-    });
+    }
 
     grid.iter_with_pos().for_each(|(pos, b)| {
         if pos.x == 0 {
@@ -168,7 +167,7 @@ fn print_with_coloring_p2(
         } else {
             // Not on path
             {
-                print!("{}", *b as char)
+                print!("{}", *b as char);
             };
         }
     });
@@ -271,7 +270,7 @@ fn find_path(map: &Grid<u8>) -> Vec<Vec2D<i32>> {
                     hueristic_score: h,
                     parent: Cell::new(Some(current_position)),
                     total_score: Cell::new(neighbour_score as i32),
-                })
+                });
             }
         });
 
@@ -352,9 +351,9 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 
 fn filter_map_to_path(grid: &mut Grid<u8>, path: &[Vec2D<i32>]) {
     let mut path_positions = HashSet::new();
-    path.iter().for_each(|v| {
+    for v in path {
         path_positions.insert(*v);
-    });
+    }
 
     grid.iter_mut_with_pos().for_each(|(pos, b)| {
         if !path_positions.contains({
@@ -370,9 +369,9 @@ fn filter_map_to_path(grid: &mut Grid<u8>, path: &[Vec2D<i32>]) {
 
 fn print_with_coloring(grid: &mut Grid<u8>, path: &[Vec2D<i32>]) {
     let mut path_positions = HashSet::new();
-    path.iter().for_each(|v| {
+    for v in path {
         path_positions.insert(*v);
-    });
+    }
 
     grid.iter_with_pos().for_each(|(pos, b)| {
         if pos.x == 0 {
@@ -395,7 +394,7 @@ fn print_with_coloring(grid: &mut Grid<u8>, path: &[Vec2D<i32>]) {
         } else {
             // Not on path
             {
-                print!("{}", *b as char)
+                print!("{}", *b as char);
             };
         }
     });
@@ -423,11 +422,11 @@ abdefghi";
         let mut grid = Grid::from_str(str);
         let movements = find_path(&grid);
 
-        println!("{}", grid);
+        println!("{grid}");
 
         filter_map_to_path(&mut grid, &movements);
 
-        println!("{}", grid);
+        println!("{grid}");
 
         assert_eq!(movements.len(), 31);
     }
