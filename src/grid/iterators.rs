@@ -16,7 +16,7 @@ impl<'a, T> EdgeIterator<'a, T> {
             grid,
             step: Step::Top,
             index: 0,
-            iterations_left: grid.line_size,
+            iterations_left: grid.height,
         }
     }
 }
@@ -27,10 +27,10 @@ impl<'a, T> Iterator for EdgeIterator<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         // Increment = how to get to the next edge
         // Top and bottom advance by one, left and right increment a whole line
-        let line_size = self.grid.line_size;
+        let line_size = self.grid.width;
         let increment = match self.step {
             Step::Top | Step::Bottom => 1,
-            Step::Left | Step::Right => self.grid.line_size,
+            Step::Left | Step::Right => line_size,
         };
 
         // Peek direction is how the inner iterator advances, it is orthagonal to self.increment

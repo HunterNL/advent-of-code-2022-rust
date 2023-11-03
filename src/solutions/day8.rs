@@ -81,10 +81,10 @@ impl<'a> Iterator for VisableTreeIterator<'a> {
 }
 
 fn find_treehouse_spot(grid: &Grid<u8>) -> i32 {
-    GridIterator::new(grid.size(), grid.size())
+    GridIterator::new(grid.width(), grid.height())
         .map(|position| score_treehouse_spot(grid, position))
         // .inspect(|f| println!("{f}"))
-        .max()
+        .max() 
         .expect("number")
 }
 
@@ -100,7 +100,7 @@ fn score_treehouse_spot(grid: &Grid<u8>, position: Vec2D<usize>) -> i32 {
 fn count_visible_trees(grid: &Grid<u8>, position: Vec2D<usize>, dir: Direction) -> i32 {
     let mut a = grid.line_iter(position, dir);
 
-    let max_tree_size = *a.next().unwrap().1; // Skip the starting tile and use it as height cap
+    let max_tree_size = *a.next().expect("First tree to be valid").1; // Skip the starting tile and use it as height cap
 
     let mut count = 0;
 
@@ -166,19 +166,13 @@ mod tests {
         // First vertical
         assert_eq!(
             vec![b'3', b'2', b'6', b'3', b'3'],
-            iter.next()
-                .unwrap()
-                .map(|a| *a.1)
-                .collect::<Vec<u8>>()
+            iter.next().unwrap().map(|a| *a.1).collect::<Vec<u8>>()
         );
 
         // Second vertical
         assert_eq!(
             vec![b'0', b'5', b'5', b'3', b'5'],
-            iter.next()
-                .unwrap()
-                .map(|a| *a.1)
-                .collect::<Vec<u8>>()
+            iter.next().unwrap().map(|a| *a.1).collect::<Vec<u8>>()
         );
 
         // Skip the next 3 verticals
@@ -189,19 +183,13 @@ mod tests {
         //First from the bottom row
         assert_eq!(
             vec![b'3', b'3', b'6', b'2', b'3'],
-            iter.next()
-                .unwrap()
-                .map(|a| *a.1)
-                .collect::<Vec<u8>>()
+            iter.next().unwrap().map(|a| *a.1).collect::<Vec<u8>>()
         );
 
         //Second on bottom row
         assert_eq!(
             vec![b'5', b'3', b'5', b'5', b'0'],
-            iter.next()
-                .unwrap()
-                .map(|a| *a.1)
-                .collect::<Vec<u8>>()
+            iter.next().unwrap().map(|a| *a.1).collect::<Vec<u8>>()
         );
 
         // Skip the next 3 verticals
@@ -212,19 +200,13 @@ mod tests {
         // First horizontal
         assert_eq!(
             vec![b'3', b'0', b'3', b'7', b'3'],
-            iter.next()
-                .unwrap()
-                .map(|a| *a.1)
-                .collect::<Vec<u8>>()
+            iter.next().unwrap().map(|a| *a.1).collect::<Vec<u8>>()
         );
 
         // Second horizontal
         assert_eq!(
             vec![b'2', b'5', b'5', b'1', b'2'],
-            iter.next()
-                .unwrap()
-                .map(|a| *a.1)
-                .collect::<Vec<u8>>()
+            iter.next().unwrap().map(|a| *a.1).collect::<Vec<u8>>()
         );
 
         // Skip the next 3 horizontals
@@ -235,19 +217,13 @@ mod tests {
         // First horizontal from the right
         assert_eq!(
             vec![b'3', b'7', b'3', b'0', b'3'],
-            iter.next()
-                .unwrap()
-                .map(|a| *a.1)
-                .collect::<Vec<u8>>()
+            iter.next().unwrap().map(|a| *a.1).collect::<Vec<u8>>()
         );
 
         // Second horizontal from the right
         assert_eq!(
             vec![b'2', b'1', b'5', b'5', b'2'],
-            iter.next()
-                .unwrap()
-                .map(|a| *a.1)
-                .collect::<Vec<u8>>()
+            iter.next().unwrap().map(|a| *a.1).collect::<Vec<u8>>()
         );
 
         Ok(())
