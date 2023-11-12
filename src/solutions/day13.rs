@@ -1,8 +1,4 @@
-use std::{
-    cmp::{self, Ordering},
-    iter::Peekable,
-    str::FromStr,
-};
+use std::{cmp::Ordering, iter::Peekable, str::FromStr};
 
 use super::{DayOutput, LogicError};
 

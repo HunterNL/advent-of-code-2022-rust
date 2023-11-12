@@ -99,6 +99,29 @@ pub enum Direction {
 }
 
 impl<T> Grid<T> {
+    pub fn new(width: usize, height: usize) -> Grid<T> {
+        let mut content = Vec::new();
+        content.reserve(width * height);
+        return Grid {
+            bytes: content,
+            width,
+            height,
+        };
+    }
+
+    pub fn new_with_content(content: Vec<T>, width: usize) -> Result<Grid<T>, String> {
+        let len = content.len();
+        if len % width != 0 {
+            Err("Content length is not a multiple of width".to_string())
+        } else {
+            Ok(Grid {
+                bytes: content,
+                width,
+                height: len / width,
+            })
+        }
+    }
+
     // Get a character at the given coordinates
     pub fn get(&self, x: usize, y: usize) -> Option<&T> {
         self.bytes.get(x + y * self.width)
@@ -119,6 +142,7 @@ impl<T> Grid<T> {
 
     pub fn set(&mut self, pos: &Vec2D<i32>, i: T) {
         let index = self.index_of_position(pos);
+
         *self.bytes.get_mut(index).unwrap() = i;
     }
 
@@ -306,6 +330,26 @@ impl Grid<u8> {
             width: size,
             height: str.lines().count(),
         }
+    }
+}
+
+impl Display for Grid<char> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.bytes
+            .chunks(self.width)
+            .try_for_each(|chunk| -> std::fmt::Result {
+                chunk.iter().try_for_each(|c| -> std::fmt::Result {
+                    f.write_fmt(format_args!("{}", c))?;
+
+                    Ok(())
+                })?;
+
+                f.write_char('\n')?;
+
+                Ok(())
+            })?;
+
+        Ok(())
     }
 }
 
