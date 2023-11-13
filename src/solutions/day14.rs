@@ -54,6 +54,31 @@ fn lowest_point(walls: &VecSet) -> i32 {
         .fold(0, |acc, cur| if (cur.y) > acc { cur.y } else { acc })
 }
 
+struct SandPathIterator<'a> {
+    position: Vec2D<i32>,
+    cave: &'a VecSet,
+}
+
+impl<'a> SandPathIterator<'a> {
+    fn new(position: Vec2D<i32>, cave: &'a VecSet) -> Self {
+        Self { position, cave }
+    }
+}
+
+impl<'a> Iterator for SandPathIterator<'a> {
+    type Item = Vec2D<i32>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next_pos = sand_next_position(self.cave, self.position)?;
+        self.position = next_pos;
+        Some(next_pos)
+    }
+}
+
+// fn sand_path_iter(cave: &VecSet) -> SandPathIterator {
+
+// }
+
 fn print_cave(cave: &VecSet) {
     let (min, max) = cave.iter().cloned().inspect(|_| {}).bounds_iter();
     let size = max - min;
@@ -80,42 +105,51 @@ fn print_cave(cave: &VecSet) {
     println!("{}", grid);
 }
 
+fn is_resting_spot(walls: &VecSet, position: Vec2D<i32>) -> bool {
+    sand_next_position(walls, position).is_none()
+}
+
+fn sand_next_position(walls: &VecSet, position: Vec2D<i32>) -> Option<Vec2D<i32>> {
+    let point_below = position + DOWN;
+    let point_below_left = position + DOWN + LEFT;
+    let point_below_right = position + DOWN + RIGHT;
+
+    // Nothing below, continue
+    if walls.get(&point_below).is_none() {
+        return Some(point_below);
+    }
+
+    // Left side free, move there
+    if walls.get(&point_below_left).is_none() {
+        return Some(point_below_left);
+    }
+
+    // Right side free, move there
+    if walls.get(&point_below_right).is_none() {
+        return Some(point_below_right);
+    }
+    None
+}
+
 fn find_abbys_count(mut walls: VecSet) -> i32 {
     let mut resting_sand_count = 0;
     let floor = lowest_point(&walls);
     let mut sand_pos = SAND_ENTRY_POINT;
     loop {
-        let point_below = sand_pos + DOWN;
-        let point_below_left = sand_pos + DOWN + LEFT;
-        let point_below_right = sand_pos + DOWN + RIGHT;
+        let next_position = sand_next_position(&walls, sand_pos);
+
+        sand_pos = match next_position {
+            Some(pos) => pos,
+            None => {
+                resting_sand_count += 1;
+                walls.insert(sand_pos);
+                SAND_ENTRY_POINT
+            }
+        };
 
         if sand_pos.y > floor {
             return resting_sand_count;
         }
-
-        // Nothing below, continue
-        if walls.get(&point_below).is_none() {
-            sand_pos = point_below;
-            continue;
-        }
-
-        // Left side free, move there
-        if walls.get(&point_below_left).is_none() {
-            sand_pos = point_below_left;
-            continue;
-        }
-
-        // Right side free, move there
-        if walls.get(&point_below_right).is_none() {
-            sand_pos = point_below_right;
-            continue;
-        }
-
-        // Nowhere to go, come to rest
-        resting_sand_count += 1;
-
-        walls.insert(sand_pos);
-        sand_pos = SAND_ENTRY_POINT;
     }
 }
 
@@ -124,49 +158,23 @@ fn find_blocked_source_count(mut walls: VecSet) -> i32 {
     let floor = lowest_point(&walls) + 2;
     let mut sand_pos = SAND_ENTRY_POINT;
     loop {
-        let point_below = sand_pos + DOWN;
-        let point_below_left = sand_pos + DOWN + LEFT;
-        let point_below_right = sand_pos + DOWN + RIGHT;
+        let next_position = sand_next_position(&walls, sand_pos);
+        let is_floor = next_position.is_some_and(|v| v.y == floor);
 
-        if point_below.y == floor {
+        if is_floor || next_position.is_none() {
             resting_sand_count += 1;
             walls.insert(sand_pos);
+
+            if sand_pos == SAND_ENTRY_POINT {
+                return resting_sand_count;
+            }
+
             sand_pos = SAND_ENTRY_POINT;
-            continue;
+        } else {
+            sand_pos = next_position.unwrap()
         }
-
-        // Nothing below, continue
-        if walls.get(&point_below).is_none() {
-            sand_pos = point_below;
-            continue;
-        }
-
-        // Left side free, move there
-        if walls.get(&point_below_left).is_none() {
-            sand_pos = point_below_left;
-            continue;
-        }
-
-        // Right side free, move there
-        if walls.get(&point_below_right).is_none() {
-            sand_pos = point_below_right;
-            continue;
-        }
-
-        // Nowhere to go, come to rest
-        resting_sand_count += 1;
-        walls.insert(sand_pos);
-
-        // We're blocking the entry, return
-        if sand_pos == SAND_ENTRY_POINT {
-            return resting_sand_count;
-        }
-
-        sand_pos = SAND_ENTRY_POINT;
     }
 }
-
-// fn parse_rock_line(s: &str, out: &mut Vec<Vec2D<i32>>) {}
 
 // https://adventofcode.com/2022/day/14
 pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
