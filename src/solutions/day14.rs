@@ -57,11 +57,16 @@ fn lowest_point(walls: &VecSet) -> i32 {
 struct SandPathIterator<'a> {
     position: Vec2D<i32>,
     cave: &'a VecSet,
+    floor: Option<i32>,
 }
 
 impl<'a> SandPathIterator<'a> {
-    fn new(position: Vec2D<i32>, cave: &'a VecSet) -> Self {
-        Self { position, cave }
+    fn new(position: Vec2D<i32>, cave: &'a VecSet, floor: Option<i32>) -> Self {
+        Self {
+            position,
+            cave,
+            floor,
+        }
     }
 }
 
@@ -69,7 +74,7 @@ impl<'a> Iterator for SandPathIterator<'a> {
     type Item = Vec2D<i32>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let next_pos = sand_next_position(self.cave, self.position)?;
+        let next_pos = sand_next_position(self.cave, self.position, self.floor)?;
         self.position = next_pos;
         Some(next_pos)
     }
@@ -105,11 +110,19 @@ fn print_cave(cave: &VecSet) {
     println!("{}", grid);
 }
 
-fn is_resting_spot(walls: &VecSet, position: Vec2D<i32>) -> bool {
-    sand_next_position(walls, position).is_none()
+fn is_resting_spot(walls: &VecSet, position: Vec2D<i32>, floor: Option<i32>) -> bool {
+    sand_next_position(walls, position, floor).is_none()
 }
 
-fn sand_next_position(walls: &VecSet, position: Vec2D<i32>) -> Option<Vec2D<i32>> {
+fn sand_next_position(
+    walls: &VecSet,
+    position: Vec2D<i32>,
+    floor: Option<i32>,
+) -> Option<Vec2D<i32>> {
+    if floor.is_some_and(|floor| position.y + 1 == floor) {
+        return None; // If floor is enabled and next level is the floor, return straight away
+    }
+
     let point_below = position + DOWN;
     let point_below_left = position + DOWN + LEFT;
     let point_below_right = position + DOWN + RIGHT;
@@ -136,7 +149,7 @@ fn find_abbys_count(mut walls: VecSet) -> i32 {
     let floor = lowest_point(&walls);
     let mut sand_pos = SAND_ENTRY_POINT;
     loop {
-        let next_position = sand_next_position(&walls, sand_pos);
+        let next_position = sand_next_position(&walls, sand_pos, None);
 
         sand_pos = match next_position {
             Some(pos) => pos,
@@ -155,25 +168,28 @@ fn find_abbys_count(mut walls: VecSet) -> i32 {
 
 fn find_blocked_source_count(mut walls: VecSet) -> i32 {
     let mut resting_sand_count = 0;
-    let floor = lowest_point(&walls) + 2;
-    let mut sand_pos = SAND_ENTRY_POINT;
+    let floor = Some(lowest_point(&walls) + 2);
+
+    let mut path = vec![SAND_ENTRY_POINT];
+    path.extend(SandPathIterator::new(SAND_ENTRY_POINT, &walls, floor));
+
     loop {
-        let next_position = sand_next_position(&walls, sand_pos);
-        let is_floor = next_position.is_some_and(|v| v.y == floor);
+        let current_position = path.pop();
+        if current_position.is_none() {
+            break;
+        }
+        let current_position = current_position.unwrap();
 
-        if is_floor || next_position.is_none() {
+        if is_resting_spot(&walls, current_position, floor) {
+            walls.insert(current_position);
             resting_sand_count += 1;
-            walls.insert(sand_pos);
-
-            if sand_pos == SAND_ENTRY_POINT {
-                return resting_sand_count;
-            }
-
-            sand_pos = SAND_ENTRY_POINT;
         } else {
-            sand_pos = next_position.unwrap()
+            path.push(current_position);
+            path.extend(SandPathIterator::new(current_position, &walls, floor))
         }
     }
+
+    resting_sand_count
 }
 
 // https://adventofcode.com/2022/day/14
@@ -192,9 +208,11 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 mod tests {
     use std::{cmp::Ordering, str::FromStr};
 
-    use crate::solutions::day14::print_cave;
+    use crate::solutions::day14::{lowest_point, print_cave};
 
-    use super::{build_walls, find_abbys_count};
+    use super::{
+        build_walls, find_abbys_count, sand_next_position, SandPathIterator, SAND_ENTRY_POINT,
+    };
 
     // use crate::solutions::day13::{decoder_key, sum_indexes, ListItem};
 
@@ -215,5 +233,55 @@ mod tests {
         let abbyscount = find_abbys_count(cave);
 
         assert_eq!(abbyscount, 24);
+    }
+
+    #[test]
+    fn iterator_equality() {
+        let input = "498,4 -> 498,6 -> 496,6
+503,4 -> 502,4 -> 502,9 -> 494,9";
+        let cave = build_walls(input);
+        let floor = None;
+
+        let mut path = vec![SAND_ENTRY_POINT];
+        let mut pos = SAND_ENTRY_POINT;
+        loop {
+            let next_pos = sand_next_position(&cave, pos, floor);
+            if next_pos.is_none() {
+                break;
+            }
+
+            path.push(next_pos.unwrap());
+            pos = next_pos.unwrap()
+        }
+
+        let mut iter_path = vec![SAND_ENTRY_POINT];
+        iter_path.extend(SandPathIterator::new(SAND_ENTRY_POINT, &cave, floor));
+
+        assert_eq!(path, iter_path);
+    }
+
+    #[test]
+    fn iterator_equality_with_floor() {
+        let input = "498,4 -> 498,6 -> 496,6
+503,4 -> 502,4 -> 502,9 -> 494,9";
+        let cave = build_walls(input);
+        let floor = Some(lowest_point(&cave) + 2);
+
+        let mut path = vec![SAND_ENTRY_POINT];
+        let mut pos = SAND_ENTRY_POINT;
+        loop {
+            let next_pos = sand_next_position(&cave, pos, floor);
+            if next_pos.is_none() {
+                break;
+            }
+
+            path.push(next_pos.unwrap());
+            pos = next_pos.unwrap()
+        }
+
+        let mut iter_path = vec![SAND_ENTRY_POINT];
+        iter_path.extend(SandPathIterator::new(SAND_ENTRY_POINT, &cave, floor));
+
+        assert_eq!(path, iter_path);
     }
 }
