@@ -61,12 +61,7 @@ impl Monkey {
         }
     }
 
-    fn take_turn(
-        &mut self,
-        false_throw: &mut ItemThrow,
-        true_throw: &mut ItemThrow,
-        div: DivideMode,
-    ) {
+    fn take_turn_p1(&mut self, false_throw: &mut ItemThrow, true_throw: &mut ItemThrow) {
         false_throw.target = self.behaviour.false_target;
         true_throw.target = self.behaviour.true_target;
 
@@ -78,16 +73,7 @@ impl Monkey {
 
             let item = self.worry_level_operation(item);
 
-            let item = item
-                / match div {
-                    DivideMode::By3 => 3,
-                    DivideMode::ByGCD(_) => 1,
-                };
-
-            let item = match div {
-                DivideMode::By3 => item,
-                DivideMode::ByGCD(c) => item % c,
-            };
+            let item = item / 3;
 
             let is_divisable = (item % self.behaviour.test_div) == 0;
 
@@ -101,6 +87,31 @@ impl Monkey {
         }
     }
 
+    fn take_turn_p2(&mut self, false_throw: &mut ItemThrow, true_throw: &mut ItemThrow, c: u64) {
+        false_throw.target = self.behaviour.false_target;
+        true_throw.target = self.behaviour.true_target;
+
+        while !self.items.is_empty() {
+            let item = self
+                .items
+                .pop_front()
+                .expect("Queue to stop before it empties");
+
+            let item = self.worry_level_operation(item);
+
+            let item = item % c;
+
+            let is_divisable = (item % self.behaviour.test_div) == 0;
+
+            if is_divisable {
+                true_throw.items.push(item);
+            } else {
+                false_throw.items.push(item);
+            }
+
+            self.items_processed += 1;
+        }
+    }
     fn worry_level_operation(&self, level: u64) -> u64 {
         let operand = match self.behaviour.operation_operand {
             Operand::Literal(n) => n,
@@ -147,6 +158,7 @@ struct MonkeyGame {
     true_trow: ItemThrow,
     false_throw: ItemThrow,
     divide_mode: DivideMode,
+    g: u64,
 }
 
 #[derive(Clone, Copy)]
@@ -177,33 +189,64 @@ impl MonkeyGame {
                 target: 0,
             },
             monkeys,
+            g,
         }
     }
 
-    fn run_round(&mut self) {
-        for i in 0..self.monkeys.len() {
-            self.monkeys.get_mut(i).unwrap().take_turn(
-                &mut self.false_throw,
-                &mut self.true_trow,
-                self.divide_mode,
-            );
-            {
-                let true_monkey = self
-                    .monkeys
-                    .get_mut(self.true_trow.target as usize)
-                    .unwrap();
+    fn run_round(&mut self, part: Part) {
+        match part {
+            Part::Part1 => {
+                for i in 0..self.monkeys.len() {
+                    self.monkeys
+                        .get_mut(i)
+                        .unwrap()
+                        .take_turn_p1(&mut self.false_throw, &mut self.true_trow);
+                    {
+                        let true_monkey = self
+                            .monkeys
+                            .get_mut(self.true_trow.target as usize)
+                            .unwrap();
 
-                true_monkey.receive_items(&mut self.true_trow);
-                self.true_trow.items.clear();
+                        true_monkey.receive_items(&mut self.true_trow);
+                        self.true_trow.items.clear();
+                    }
+                    {
+                        let false_monkey = self
+                            .monkeys
+                            .get_mut(self.false_throw.target as usize)
+                            .unwrap();
+
+                        false_monkey.receive_items(&mut self.false_throw);
+                        self.false_throw.items.clear();
+                    }
+                }
             }
-            {
-                let false_monkey = self
-                    .monkeys
-                    .get_mut(self.false_throw.target as usize)
-                    .unwrap();
+            Part::Part2 => {
+                for i in 0..self.monkeys.len() {
+                    self.monkeys.get_mut(i).unwrap().take_turn_p2(
+                        &mut self.false_throw,
+                        &mut self.true_trow,
+                        self.g,
+                    );
+                    {
+                        let true_monkey = self
+                            .monkeys
+                            .get_mut(self.true_trow.target as usize)
+                            .unwrap();
 
-                false_monkey.receive_items(&mut self.false_throw);
-                self.false_throw.items.clear();
+                        true_monkey.receive_items(&mut self.true_trow);
+                        self.true_trow.items.clear();
+                    }
+                    {
+                        let false_monkey = self
+                            .monkeys
+                            .get_mut(self.false_throw.target as usize)
+                            .unwrap();
+
+                        false_monkey.receive_items(&mut self.false_throw);
+                        self.false_throw.items.clear();
+                    }
+                }
             }
         }
 
@@ -273,6 +316,11 @@ impl FromStr for MonkeyBehaviour {
     }
 }
 
+enum Part {
+    Part1,
+    Part2,
+}
+
 // https://adventofcode.com/2022/day/11
 pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     let behaviours: Vec<_> = input
@@ -287,10 +335,10 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     let mut p2_game = MonkeyGame::new(behaviours.into_iter().map(Monkey::new).collect(), true);
 
     for _ in 0..20 {
-        p1_game.run_round();
+        p1_game.run_round(Part::Part1);
     }
     for _ in 0..10_000 {
-        p2_game.run_round();
+        p2_game.run_round(Part::Part2);
     }
 
     Ok(DayOutput {
