@@ -118,16 +118,64 @@ impl RangeSet {
         out
     }
 
+    // This has grown into an insane tree of edge cases that should be faster then the wastfully slow fallback option
+    // I'd love to simplify this somewhat but oh dear
     pub fn insert(&mut self, new_range: (i32, i32)) {
         let len = self.0.len();
         let left_index = self.position_report(&new_range.0);
         let right_index = self.position_report(&new_range.1);
+
+        let right_index_hit_marker = !right_index.in_range && right_index.occupied;
+
+        if new_range == (-1, 6) {
+            println!("oh no")
+        }
 
         if left_index.index == len || len == 0 {
             // We're inserting beyond any exising range, or the vector is simply empty
             self.0.push(new_range.0);
             self.0.push(new_range.1);
             return;
+        }
+
+        //Insert before first range
+        if left_index.index == 0 && right_index.index == 0 && !right_index.in_range {
+            self.0.insert(0, new_range.1);
+            self.0.insert(0, new_range.0);
+            return;
+        }
+
+        // if (left_index.in_range && right_index.index == len) {
+        //     // We've reached beyond the end of the vector, scrap everything between and insert the new end
+        //     self.0.drain(left_index.index + 1..);
+        //     self.0.push(new_range.1);
+        //     return;
+        // }
+
+        // Extend first range
+        // if left_index.index == 0 && left_index.index != right_index.index {
+        //     *self.0.get_mut(0).unwrap() = new_range.0;
+        // }
+
+        // Left side is an exact hit on the last range and the new range extends beyond the array
+        if left_index.in_range
+            // && left_index.occupied
+            && right_index.index == len
+            && left_index.range_start_index + 2 == right_index.range_start_index
+        {
+            *self.0.last_mut().unwrap() = new_range.1;
+            return;
+        }
+
+        if (left_index.index + 1 == right_index.index) {
+            if (!left_index.in_range && (right_index.in_range || right_index_hit_marker)) {
+                *self.0.get_mut(left_index.range_start_index).unwrap() = new_range.0;
+                return;
+            }
+
+            if (left_index.in_range && right_index.in_range || right_index_hit_marker) {
+                return;
+            }
         }
 
         if left_index.index == right_index.index {
@@ -139,8 +187,8 @@ impl RangeSet {
                 return;
             }
 
-            if left_index.occupied && right_index.in_range {
-                // Right slow is a a start, extend it
+            if right_index.occupied && right_index.in_range {
+                // Right slot is a a start, extend it
                 *self.0.get_mut(right_index.index).unwrap() = new_range.1;
                 return;
             }
@@ -155,21 +203,59 @@ impl RangeSet {
             if left_index.in_range && right_index.in_range {
                 return; // We're fully overlapping an exsisting range, just ignore and abort
             }
-        } else {
-            // println!("SLOW {}, {}", new_range.0, new_range.1);
-            let overlaps = self.overlapping_ranges(new_range);
-            // assert_ne!(overlaps.len(), 1); // Any code above should have handled the simple cases
-            let mut remove_counter = 0;
-            let mut range_accumelator = new_range;
-            for overlap in overlaps.into_iter() {
-                range_accumelator = range_accumelator.merge(&(overlap.1, overlap.2));
-                self.0.remove(overlap.0 - remove_counter);
-                self.0.remove(overlap.0 - remove_counter);
-                remove_counter += 2;
+
+            if left_index.in_range
+                && (right_index.in_range || (right_index.occupied && !right_index.in_range))
+            {
+                // Left side and right side are in range or on the exact order. We're overlapped by the exsisting range, ignore
+                return;
+            }
+        }
+
+        if (left_index.range_start_index + 2 == right_index.range_start_index) {
+            // Positions hit two different sequential ranges
+
+            if (left_index.occupied && !left_index.in_range)
+                || left_index.in_range
+                || left_index.index == 0
+            {
+                if (right_index.in_range || right_index_hit_marker) {
+                    // Hit two ranges, overlapping both, just remove the entries keeping them seperate
+                    self.0.remove(left_index.range_start_index + 1);
+                    self.0.remove(left_index.range_start_index + 1);
+                    return;
+                }
             }
 
-            self.insert(range_accumelator)
+            // We're entirely overlapping an existing range
+            if (!left_index.in_range && !left_index.occupied && !right_index.in_range) {
+                *self.0.get_mut(left_index.range_start_index).unwrap() = new_range.0;
+                *self.0.get_mut(left_index.range_start_index + 1).unwrap() = new_range.1;
+                return;
+            }
         }
+
+        if left_index.index + 1 == right_index.index && !right_index.in_range {
+            if left_index.occupied && !left_index.in_range {
+                *self.0.get_mut(left_index.index).unwrap() = new_range.1;
+                return;
+            }
+        }
+
+        println!("SLOW {}, {}", new_range.0, new_range.1);
+        // *c += 1;
+        let overlaps = self.overlapping_ranges(new_range);
+        // assert_ne!(overlaps.len(), 1); // Any code above should have handled the simple cases
+        let mut remove_counter = 0;
+        let mut range_accumelator = new_range;
+        for overlap in overlaps.into_iter() {
+            range_accumelator = range_accumelator.merge(&(overlap.1, overlap.2));
+            self.0.remove(overlap.0 - remove_counter);
+            self.0.remove(overlap.0 - remove_counter);
+            remove_counter += 2;
+        }
+
+        self.insert(range_accumelator)
     }
 
     pub fn size(&self) -> i32 {
@@ -277,6 +363,8 @@ impl RangeSet {
 
 #[cfg(test)]
 mod tests {
+    use std::default;
+
     use super::*;
 
     fn expect<T>(a: T, b: T, msg: &'static str) -> Result<(), String>
@@ -344,6 +432,17 @@ mod tests {
         assert_eq!(range.len(), 1);
         range.remove((10, 20));
         assert_eq!(range.len(), 0);
+    }
+
+    #[test]
+    fn dont_be_slow_when_inserting_beyond_end() {
+        let mut range = RangeSet::default();
+        range.insert((3, 5));
+        range.insert((8, 10));
+        range.insert((13, 15));
+        range.insert((9, 16));
+
+        assert_eq!(range.len(), 2)
     }
 
     #[test]
