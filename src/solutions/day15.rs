@@ -172,12 +172,12 @@ fn make_sensors(input: &str) -> Vec<Sensor> {
 }
 
 fn find_empty_spot(s: &[Sensor], max: i32) -> u64 {
-    let mut ranges = vec![];
+    let mut ranges: Vec<RangeSet> = vec![];
     ranges.reserve(max as usize);
+
+    // ranges.fill(Default::default());
     for _ in 0..max {
-        let mut rs = RangeSet::default();
-        rs.insert((0, max + 1));
-        ranges.push(rs);
+        ranges.push(RangeSet::default());
     }
 
     for sensor in s {
@@ -190,10 +190,12 @@ fn find_empty_spot(s: &[Sensor], max: i32) -> u64 {
             );
 
             let rs = ranges.get_mut(y as usize).unwrap();
-            let size_before = rs.size();
-            if sensor_line_range.lower == 6 && sensor_line_range.upper == 10 {
-                println!("Oh oh");
-            }
+
+            // let rs = ranges.get_mut(y as usize).unwrap();
+            // let size_before = rs.size();
+            // if sensor_line_range.lower == 6 && sensor_line_range.upper == 10 {
+            // println!("Oh oh");
+            // }
 
             // println!("====================");
             // println!("Before: {:?}", rs);
@@ -202,14 +204,15 @@ fn find_empty_spot(s: &[Sensor], max: i32) -> u64 {
             //     sensor_line_range.lower,
             //     sensor_line_range.upper + 1,
             // );
-            rs.remove((sensor_line_range.lower, sensor_line_range.upper + 1));
+            rs.insert((sensor_line_range.lower, sensor_line_range.upper + 1));
+            // rs.remove((sensor_line_range.lower, sensor_line_range.upper + 1));
             // println!("After: {:?}", rs);
 
-            let size_after = rs.size();
-            if size_after > size_before {
-                println!("Size grew!");
-                panic!();
-            }
+            // let size_after = rs.size();
+            // if size_after > size_before {
+            //     println!("Size grew!");
+            //     panic!();
+            // }
 
             // ranges
             //     .get_mut(y as usize)
@@ -218,12 +221,12 @@ fn find_empty_spot(s: &[Sensor], max: i32) -> u64 {
         }
     }
 
-    let y = ranges.iter().position(|r| r.0.len() > 0).expect("A find");
+    let y = ranges.iter().position(|r| r.len() == 2).expect("A find");
 
     let line = ranges.get(y).expect("One find");
     let range = line.iter_ranges().next().expect("An entry");
 
-    range.0 as u64 * 4000000 + y as u64
+    (range.1 as u64) * 4000000 + y as u64
 }
 
 // https://adventofcode.com/2022/day/15

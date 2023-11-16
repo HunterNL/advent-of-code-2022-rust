@@ -1,6 +1,6 @@
 use crate::range::Ranging;
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct RangeSet(pub Vec<i32>);
 
 #[derive(PartialEq, Eq)]
@@ -156,7 +156,7 @@ impl RangeSet {
                 return; // We're fully overlapping an exsisting range, just ignore and abort
             }
         } else {
-            println!("{}, {}", new_range.0, new_range.1);
+            // println!("SLOW {}, {}", new_range.0, new_range.1);
             let overlaps = self.overlapping_ranges(new_range);
             // assert_ne!(overlaps.len(), 1); // Any code above should have handled the simple cases
             let mut remove_counter = 0;
