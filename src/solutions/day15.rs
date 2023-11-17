@@ -204,7 +204,10 @@ fn find_empty_spot(s: &[Sensor], max: i32) -> u64 {
             //     sensor_line_range.lower,
             //     sensor_line_range.upper + 1,
             // );
-            rs.insert((sensor_line_range.lower, sensor_line_range.upper + 1));
+            rs.insert((
+                sensor_line_range.lower.max(0),
+                sensor_line_range.upper.min(max) + 1,
+            ));
             // rs.remove((sensor_line_range.lower, sensor_line_range.upper + 1));
             // println!("After: {:?}", rs);
 

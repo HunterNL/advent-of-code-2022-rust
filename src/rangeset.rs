@@ -127,9 +127,8 @@ impl RangeSet {
 
         let right_index_hit_marker = !right_index.in_range && right_index.occupied;
 
-        if new_range == (-1, 6) {
-            println!("oh no")
-        }
+        let index_dif = right_index.index - left_index.index;
+        let range_dif = right_index.range_start_index - left_index.range_start_index;
 
         if left_index.index == len || len == 0 {
             // We're inserting beyond any exising range, or the vector is simply empty
@@ -145,12 +144,77 @@ impl RangeSet {
             return;
         }
 
-        // if (left_index.in_range && right_index.index == len) {
-        //     // We've reached beyond the end of the vector, scrap everything between and insert the new end
-        //     self.0.drain(left_index.index + 1..);
-        //     self.0.push(new_range.1);
-        //     return;
-        // }
+        if (index_dif == 1) {
+            if (left_index.in_range && (!right_index.in_range || right_index_hit_marker)) {
+                *self.0.get_mut(left_index.range_start_index + 1).unwrap() = new_range.1;
+                return;
+            }
+        }
+
+        if (left_index.in_range && right_index.index == len && range_dif > 2) {
+            // We've reached beyond the end of the vector, scrap everything between and insert the new end
+            self.0.drain(left_index.range_start_index + 1..);
+            self.0.push(new_range.1);
+            return;
+        }
+
+        if (left_index.index == 0
+            && (right_index.in_range || right_index_hit_marker)
+            && range_dif > 2)
+        {
+            //Start all the way trough right_index should be covered
+            self.0.drain(0..right_index.range_start_index + 1);
+            self.0.insert(0, new_range.0);
+            return;
+        }
+
+        if (range_dif > 2) {
+            if (left_index.in_range && (right_index.in_range || right_index_hit_marker)) {
+                self.0
+                    .drain(left_index.range_start_index + 1..right_index.range_start_index + 1);
+                return;
+            }
+
+            if (left_index.in_range && !(right_index.in_range || right_index_hit_marker)) {
+                self.0.insert(right_index.index + 1, new_range.1);
+                self.0
+                    .drain(left_index.range_start_index + 1..right_index.range_start_index + 2);
+                return;
+            }
+
+            if (left_index.occupied
+                && !left_index.in_range
+                && !right_index.in_range
+                && !right_index.occupied)
+            {
+                self.0.insert(right_index.index + 1, new_range.1);
+                self.0
+                    .drain(left_index.range_start_index + 1..right_index.range_start_index);
+                return;
+            }
+
+            if (!left_index.occupied && left_index.index == 0) {
+                if (!right_index_hit_marker && !right_index.in_range) {
+                    self.0.drain(0..right_index.index);
+                    self.0.insert(0, new_range.1);
+                    return;
+                }
+            }
+        }
+        if (range_dif == 2) {
+            if (index_dif == 2) {
+                if (left_index.in_range && left_index.occupied && !right_index.in_range) {
+                    *self.0.get_mut(left_index.range_start_index + 1).unwrap() = new_range.1;
+                    return;
+                }
+            }
+
+            if (index_dif == 3 && right_index.in_range && left_index.index > 0) {
+                self.0.insert(left_index.index, new_range.0);
+                self.0.drain(left_index.index + 2..left_index.index + 4);
+                return;
+            }
+        }
 
         // Extend first range
         // if left_index.index == 0 && left_index.index != right_index.index {
