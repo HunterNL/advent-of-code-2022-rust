@@ -1,24 +1,14 @@
-use std::{
-    char,
-    collections::HashSet,
-    fmt::{self, Display, Write},
-    str::FromStr,
-};
+use std::{collections::HashSet, str::FromStr};
 
 use crate::vec2d::{Vec2D, DOWN, LEFT, RIGHT, UP};
 
-use crate::{
-    range::{self, Ranging},
-    rangeset::RangeIterator,
-    rangeset::RangeSet,
-};
+use crate::{range::Ranging, rangeset::RangeSet};
 
 use super::{DayOutput, LogicError};
 
-const SEARCH_MAX_P1: i32 = 20;
-const SEARCH_MAX_P2: i32 = 4000000;
+const SEARCH_MAX_P2: i32 = 4_000_000;
 
-/// Extends char::is_ascii_digit with '-' char to easily select negative numbers
+/// Extends `char::is_ascii_digit` with `'-'` to easily select negative numbers
 fn is_number_char(char: &char) -> bool {
     char.is_ascii_digit() || char == &'-'
 }
@@ -133,7 +123,7 @@ impl Sensor {
         let x_dif = (self.position.x - other.position.x).abs() - 1;
         let y_dif = (self.position.y - other.position.y).abs() - 1;
 
-        let diff = x_dif.min(y_dif) + 1;
+        // let diff = x_dif.min(y_dif) + 1;
 
         let smaller_radius = self.radius.min(other.radius);
         let smaller_cross_section = (smaller_radius - 1) * 2 + 1;
@@ -169,51 +159,6 @@ impl FromStr for Sensor {
     }
 }
 
-// #[derive(Debug)]
-// struct RangeSet {
-//     ranges: Vec<Range>,
-// }
-
-// impl Display for RangeSet {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         let max = self.ranges.iter().map(|r| r.upper).max().unwrap();
-
-//         for n in 0..=max {
-//             if self.is_in_range(n) {
-//                 f.write_char('X')?
-//             } else {
-//                 f.write_char(' ')?
-//             }
-//         }
-
-//         Ok(())
-//     }
-// }
-
-// #[cfg(test)]
-// mod rangeset_tests {
-//     use super::RangeSet2;
-
-//     #[test]
-//     fn is_in_range() {
-//         let rs = RangeSet2(vec![0, 10]);
-//         assert!(rs.is_in_range(0));
-//         assert!(rs.is_in_range(10));
-//         assert!(rs.is_in_range(5));
-
-//         assert!(!rs.is_in_range(-1));
-//         assert!(!rs.is_in_range(-5));
-//         assert!(!rs.is_in_range(11));
-//     }
-
-//     // #[test]
-//     // fn insert_extend() {
-//     //     let mut rs = RangeSet2(vec![0, 5, 10, 15]);
-//     //     rs.insert(&(15, 20).into());
-//     //     assert_eq!(rs.0, vec![0, 5, 10, 20])
-//     // }
-// }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Range {
     lower: i32,
@@ -235,11 +180,8 @@ fn line_overlap_count(sensors: &[Sensor], y: i32) -> i32 {
     sensors
         .iter()
         .filter_map(|s| s.range_on_y_line(y))
-        // .inspect(|f| )
         .for_each(|r| {
-            // println!("Adding {} {} to line ", r.lower, r.upper + 1);
             set.insert((r.lower, r.upper + 1));
-            // println!("Sum: {}", set.size())
         });
 
     let overlap_count: i32 = set.iter_ranges().map(|r| r.range_size()).sum();
@@ -261,25 +203,15 @@ fn make_sensors(input: &str) -> Vec<Sensor> {
 }
 
 fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
-    // let mut ranges: Vec<RangeSet> = vec![];
-    // ranges.reserve(max as usize);
-
-    // ranges.fill(Default::default());
-    // for _ in 0..max {
-    //     ranges.push(RangeSet::new_with_capacity(8));
-    // }
-
     let is_in_range = |vec: &Vec2D<i32>| vec.x > 0 && vec.x <= max && vec.y > 0 && vec.y <= max;
-
-    // for sensor in s {
 
     //Find a sensor...
     let pos = sensors.iter().find_map(|sensor| {
-        // ... where a point just outside its radius
+        // ... where a point just outside its radius ...
         ManhattenCircleRadiusIterator::new(sensor.position, sensor.radius + 1)
             .filter(is_in_range)
             .find(|test_position| {
-                // Is outside the radius of all sensors
+                // ... is outside the radius of all sensors
 
                 sensors
                     .iter()
@@ -287,57 +219,7 @@ fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
             })
     });
 
-    //     let upper_y = sensor.position.y - sensor.radius;
-    //     let lower_y = sensor.position.y + sensor.radius;
-
-    //     for y in upper_y.max(0)..lower_y.min(max) {
-    //         let sensor_line_range = sensor.range_on_y_line(y).expect(
-    //             "Sensor should have some range on this line, we're already limiting to radius",
-    //         );
-
-    //         let rs = ranges.get_mut(y as usize).unwrap();
-
-    //         // let rs = ranges.get_mut(y as usize).unwrap();
-    //         // let size_before = rs.size();
-    //         // if sensor_line_range.lower == 6 && sensor_line_range.upper == 10 {
-    //         // println!("Oh oh");
-    //         // }
-
-    //         // println!("====================");
-    //         // println!("Before: {:?}", rs);
-    //         // println!(
-    //         //     "Removing {} {}",
-    //         //     sensor_line_range.lower,
-    //         //     sensor_line_range.upper + 1,
-    //         // );
-    //         rs.insert((
-    //             sensor_line_range.lower.max(0),
-    //             sensor_line_range.upper.min(max) + 1,
-    //         ));
-    //         // rs.remove((sensor_line_range.lower, sensor_line_range.upper + 1));
-    //         // println!("After: {:?}", rs);
-
-    //         // let size_after = rs.size();
-    //         // if size_after > size_before {
-    //         //     println!("Size grew!");
-    //         //     panic!();
-    //         // }
-
-    //         // ranges
-    //         //     .get_mut(y as usize)
-    //         //     .unwrap()
-    //         //     .remove((sensor_line_range.lower, sensor_line_range.upper + 1))
-    //     }
-    // }
-    if pos.is_none() {
-        panic!("oh no");
-    }
-    let pos = pos.unwrap();
-
-    // let y = ranges.iter().position(|r| r.len() == 2).expect("A find");
-
-    // let line = ranges.get(y).expect("One find");
-    // let range = line.iter_ranges().next().expect("An entry");
+    let pos = pos.expect("find_empty_spot to find a spot");
 
     (pos.x as u64) * 4000000 + pos.y as u64
 }
@@ -361,14 +243,14 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 #[cfg(test)]
 mod tests {
 
+    const SEARCH_MAX_P1: i32 = 20;
+
     use crate::{
-        solutions::day15::{
-            find_empty_spot, line_overlap_count, Range, SEARCH_MAX_P1, SEARCH_MAX_P2,
-        },
+        solutions::day15::{find_empty_spot, line_overlap_count},
         vec2d::{Vec2D, DOWN, LEFT, RIGHT, UP},
     };
 
-    use super::{make_sensors, ManhattenCircleRadiusIterator, RangeSet, Sensor};
+    use super::{make_sensors, ManhattenCircleRadiusIterator, Sensor};
 
     #[test]
     // #[ignore = "wip"]
