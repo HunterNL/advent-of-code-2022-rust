@@ -3,11 +3,11 @@ use crate::range::Ranging;
 #[derive(Default, Debug, Clone)]
 pub struct RangeSet(pub Vec<i32>);
 
-#[derive(PartialEq, Eq)]
-enum RangeSlot {
-    Start,
-    End,
-}
+// #[derive(PartialEq, Eq)]
+// enum RangeSlot {
+//     Start,
+//     End,
+// }
 
 struct PositionReport {
     occupied: bool,
@@ -54,15 +54,15 @@ impl From<Result<usize, usize>> for PositionReport {
     }
 }
 
-impl RangeSlot {
-    fn for_index(n: usize) -> RangeSlot {
-        if n % 2 == 0 {
-            RangeSlot::Start
-        } else {
-            RangeSlot::End
-        }
-    }
-}
+// impl RangeSlot {
+//     fn for_index(n: usize) -> RangeSlot {
+//         if n % 2 == 0 {
+//             RangeSlot::Start
+//         } else {
+//             RangeSlot::End
+//         }
+//     }
+// }
 
 pub struct RangeIterator<'a>
 where
@@ -85,14 +85,18 @@ impl<'a> Iterator for RangeIterator<'a> {
 }
 
 impl RangeSet {
+    pub fn new_with_capacity(cap: usize) -> Self {
+        RangeSet(Vec::with_capacity(cap))
+    }
+
     pub fn len(&self) -> usize {
         self.0.len() / 2
     }
 
     pub fn overlapping_ranges(&self, range: (i32, i32)) -> Vec<(usize, i32, i32)> {
         let mut out = vec![];
-        let left_index = self.position_report(&range.0);
-        let right_index = self.position_report(&range.1);
+        let left_index = self.position_report(range.0);
+        let right_index = self.position_report(range.1);
 
         let first_range_index = left_index.range_start_index;
         let last_range_index = if right_index.in_range {
@@ -122,9 +126,17 @@ impl RangeSet {
     // I'd love to simplify this somewhat but oh dear
     pub fn insert(&mut self, new_range: (i32, i32)) {
         let len = self.0.len();
-        let left_index = self.position_report(&new_range.0);
-        let right_index = self.position_report(&new_range.1);
 
+        let left_index = self.position_report(new_range.0);
+
+        // Simple case, vector is empty or we're inserting at the very end
+        if left_index.index == len || len == 0 {
+            self.0.push(new_range.0);
+            self.0.push(new_range.1);
+            return;
+        }
+
+        let right_index = self.position_report(new_range.1);
         let right_index_hit_marker = !right_index.in_range && right_index.occupied;
 
         let index_dif = right_index.index - left_index.index;
@@ -337,18 +349,18 @@ impl RangeSet {
     //     }
     // }
 
-    fn position_report(&self, n: &i32) -> PositionReport {
-        self.0.binary_search(n).into() // If we got an error, check if the index is even or uneven
+    fn position_report(&self, n: i32) -> PositionReport {
+        self.0.binary_search(&n).into() // If we got an error, check if the index is even or uneven
     }
 
     pub fn is_in_range(&self, n: i32) -> bool {
-        self.position_report(&n).in_range
+        self.position_report(n).in_range
     }
 
     pub fn remove(&mut self, cut: (i32, i32)) {
         let len = self.0.len();
-        let left_index = self.position_report(&cut.0);
-        let right_index = self.position_report(&cut.1);
+        let left_index = self.position_report(cut.0);
+        let right_index = self.position_report(cut.1);
         if len == left_index.index {
             // Nothing to remove
             return;

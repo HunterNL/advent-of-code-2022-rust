@@ -5,11 +5,12 @@ use std::{
     str::FromStr,
 };
 
+use crate::vec2d::{Vec2D, DOWN, LEFT, RIGHT, UP};
+
 use crate::{
     range::{self, Ranging},
     rangeset::RangeIterator,
     rangeset::RangeSet,
-    vec2d::Vec2D,
 };
 
 use super::{DayOutput, LogicError};
@@ -34,6 +35,68 @@ where
     chars.parse().expect("Chars to parse into numbers")
 }
 
+enum Side {
+    TopRight,
+    BottomRight,
+    BottomLeft,
+    TopLeft,
+}
+
+struct ManhattenCircleRadiusIterator {
+    radius: i32,
+    side: Side,
+    side_index: i32,
+    current_position: Vec2D<i32>,
+    current_direction: Vec2D<i32>,
+    index: i32,
+}
+
+impl ManhattenCircleRadiusIterator {
+    fn new(center: Vec2D<i32>, radius: i32) -> Self {
+        ManhattenCircleRadiusIterator {
+            radius,
+            side: Side::TopRight,
+            side_index: 0,
+            index: 0,
+            current_position: center + crate::vec2d::UP.scale(radius),
+            current_direction: DOWN + RIGHT,
+        }
+    }
+}
+
+impl Iterator for ManhattenCircleRadiusIterator {
+    type Item = Vec2D<i32>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let out = self.current_position;
+        self.side_index += 1;
+        self.index += 1;
+        if self.index > self.radius * 4 {
+            return None;
+        }
+        if self.side_index > self.radius {
+            self.side_index = 1;
+            self.side = match self.side {
+                Side::TopRight => Side::BottomRight,
+                Side::BottomRight => Side::BottomLeft,
+                Side::BottomLeft => Side::TopLeft,
+                Side::TopLeft => Side::TopRight,
+            };
+
+            self.current_direction = match self.side {
+                Side::TopRight => DOWN + RIGHT,
+                Side::BottomRight => DOWN + LEFT,
+                Side::BottomLeft => UP + LEFT,
+                Side::TopLeft => UP + RIGHT,
+            };
+        }
+
+        self.current_position = self.current_position + self.current_direction;
+
+        Some(out)
+    }
+}
+
 #[derive(Debug)]
 struct Sensor {
     position: Vec2D<i32>,
@@ -53,6 +116,32 @@ impl Sensor {
                 upper: self.position.x + half_line_count.max(0),
             })
         }
+    }
+
+    fn area(&self) -> i32 {
+        let rplus = self.radius + 1;
+        (self.radius * self.radius) + (rplus * rplus)
+    }
+
+    fn common_area(&self, other: &Self) -> i32 {
+        let distance = self.position.distance_manhatten(&other.position) - 1;
+        let overlap_depth = -(distance - (self.radius + other.radius));
+        if overlap_depth <= 0 {
+            return 0;
+        }
+
+        let x_dif = (self.position.x - other.position.x).abs() - 1;
+        let y_dif = (self.position.y - other.position.y).abs() - 1;
+
+        let diff = x_dif.min(y_dif) + 1;
+
+        let smaller_radius = self.radius.min(other.radius);
+        let smaller_cross_section = (smaller_radius - 1) * 2 + 1;
+        smaller_cross_section * overlap_depth
+    }
+
+    fn cross_section(&self) -> i32 {
+        (self.radius - 1) * 2 + 1
     }
 }
 
@@ -171,65 +260,86 @@ fn make_sensors(input: &str) -> Vec<Sensor> {
         .collect()
 }
 
-fn find_empty_spot(s: &[Sensor], max: i32) -> u64 {
-    let mut ranges: Vec<RangeSet> = vec![];
-    ranges.reserve(max as usize);
+fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
+    // let mut ranges: Vec<RangeSet> = vec![];
+    // ranges.reserve(max as usize);
 
     // ranges.fill(Default::default());
-    for _ in 0..max {
-        ranges.push(RangeSet::default());
+    // for _ in 0..max {
+    //     ranges.push(RangeSet::new_with_capacity(8));
+    // }
+
+    let is_in_range = |vec: &Vec2D<i32>| vec.x > 0 && vec.x <= max && vec.y > 0 && vec.y <= max;
+
+    // for sensor in s {
+
+    //Find a sensor...
+    let pos = sensors.iter().find_map(|sensor| {
+        // ... where a point just outside its radius
+        ManhattenCircleRadiusIterator::new(sensor.position, sensor.radius + 1)
+            .filter(is_in_range)
+            .find(|test_position| {
+                // Is outside the radius of all sensors
+
+                sensors
+                    .iter()
+                    .all(|sensor| sensor.position.distance_manhatten(test_position) > sensor.radius)
+            })
+    });
+
+    //     let upper_y = sensor.position.y - sensor.radius;
+    //     let lower_y = sensor.position.y + sensor.radius;
+
+    //     for y in upper_y.max(0)..lower_y.min(max) {
+    //         let sensor_line_range = sensor.range_on_y_line(y).expect(
+    //             "Sensor should have some range on this line, we're already limiting to radius",
+    //         );
+
+    //         let rs = ranges.get_mut(y as usize).unwrap();
+
+    //         // let rs = ranges.get_mut(y as usize).unwrap();
+    //         // let size_before = rs.size();
+    //         // if sensor_line_range.lower == 6 && sensor_line_range.upper == 10 {
+    //         // println!("Oh oh");
+    //         // }
+
+    //         // println!("====================");
+    //         // println!("Before: {:?}", rs);
+    //         // println!(
+    //         //     "Removing {} {}",
+    //         //     sensor_line_range.lower,
+    //         //     sensor_line_range.upper + 1,
+    //         // );
+    //         rs.insert((
+    //             sensor_line_range.lower.max(0),
+    //             sensor_line_range.upper.min(max) + 1,
+    //         ));
+    //         // rs.remove((sensor_line_range.lower, sensor_line_range.upper + 1));
+    //         // println!("After: {:?}", rs);
+
+    //         // let size_after = rs.size();
+    //         // if size_after > size_before {
+    //         //     println!("Size grew!");
+    //         //     panic!();
+    //         // }
+
+    //         // ranges
+    //         //     .get_mut(y as usize)
+    //         //     .unwrap()
+    //         //     .remove((sensor_line_range.lower, sensor_line_range.upper + 1))
+    //     }
+    // }
+    if pos.is_none() {
+        panic!("oh no");
     }
+    let pos = pos.unwrap();
 
-    for sensor in s {
-        let upper_y = sensor.position.y - sensor.radius;
-        let lower_y = sensor.position.y + sensor.radius;
+    // let y = ranges.iter().position(|r| r.len() == 2).expect("A find");
 
-        for y in upper_y.max(0)..lower_y.min(max) {
-            let sensor_line_range = sensor.range_on_y_line(y).expect(
-                "Sensor should have some range on this line, we're already limiting to radius",
-            );
+    // let line = ranges.get(y).expect("One find");
+    // let range = line.iter_ranges().next().expect("An entry");
 
-            let rs = ranges.get_mut(y as usize).unwrap();
-
-            // let rs = ranges.get_mut(y as usize).unwrap();
-            // let size_before = rs.size();
-            // if sensor_line_range.lower == 6 && sensor_line_range.upper == 10 {
-            // println!("Oh oh");
-            // }
-
-            // println!("====================");
-            // println!("Before: {:?}", rs);
-            // println!(
-            //     "Removing {} {}",
-            //     sensor_line_range.lower,
-            //     sensor_line_range.upper + 1,
-            // );
-            rs.insert((
-                sensor_line_range.lower.max(0),
-                sensor_line_range.upper.min(max) + 1,
-            ));
-            // rs.remove((sensor_line_range.lower, sensor_line_range.upper + 1));
-            // println!("After: {:?}", rs);
-
-            // let size_after = rs.size();
-            // if size_after > size_before {
-            //     println!("Size grew!");
-            //     panic!();
-            // }
-
-            // ranges
-            //     .get_mut(y as usize)
-            //     .unwrap()
-            //     .remove((sensor_line_range.lower, sensor_line_range.upper + 1))
-        }
-    }
-
-    let y = ranges.iter().position(|r| r.len() == 2).expect("A find");
-
-    let line = ranges.get(y).expect("One find");
-    let range = line.iter_ranges().next().expect("An entry");
-
-    (range.1 as u64) * 4000000 + y as u64
+    (pos.x as u64) * 4000000 + pos.y as u64
 }
 
 // https://adventofcode.com/2022/day/15
@@ -251,16 +361,27 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 #[cfg(test)]
 mod tests {
 
-    use crate::solutions::day15::{
-        find_empty_spot, line_overlap_count, Range, SEARCH_MAX_P1, SEARCH_MAX_P2,
+    use crate::{
+        solutions::day15::{
+            find_empty_spot, line_overlap_count, Range, SEARCH_MAX_P1, SEARCH_MAX_P2,
+        },
+        vec2d::{Vec2D, DOWN, LEFT, RIGHT, UP},
     };
 
-    use super::{make_sensors, RangeSet, Sensor};
+    use super::{make_sensors, ManhattenCircleRadiusIterator, RangeSet, Sensor};
 
     #[test]
     // #[ignore = "wip"]
     fn day() -> Result<(), String> {
         super::super::tests::test_day(15, super::solve)
+    }
+
+    fn test_sensor(x: i32, y: i32, radius: i32) -> Sensor {
+        Sensor {
+            position: Vec2D { x, y },
+            beacon_position: Vec2D { x: 0, y: 0 },
+            radius,
+        }
     }
 
     #[test]
@@ -304,6 +425,78 @@ Sensor at x=20, y=1: closest beacon is at x=15, y=3";
 
         let sensors = make_sensors(input);
         assert_eq!(find_empty_spot(&sensors, SEARCH_MAX_P1), 56000011)
+    }
+
+    #[test]
+    fn area() {
+        let mut s = Sensor {
+            beacon_position: Vec2D { x: 0, y: 0 },
+            position: Vec2D { x: 0, y: 0 },
+            radius: 0,
+        };
+
+        s.radius = 1;
+        assert_eq!(s.area(), 5);
+
+        s.radius = 2;
+        assert_eq!(s.area(), 13);
+
+        s.radius = 3;
+        assert_eq!(s.area(), 25);
+
+        s.radius = 4;
+        assert_eq!(s.area(), 41);
+    }
+
+    #[test]
+    fn cross_section() {
+        assert_eq!(test_sensor(0, 0, 1).cross_section(), 1);
+        assert_eq!(test_sensor(0, 0, 2).cross_section(), 3);
+        assert_eq!(test_sensor(0, 0, 3).cross_section(), 5);
+        assert_eq!(test_sensor(0, 0, 4).cross_section(), 7);
+    }
+
+    #[test]
+    fn common_area_none() {
+        let left = test_sensor(5, 0, 1);
+        let right = test_sensor(8, 0, 1);
+
+        assert_eq!(left.common_area(&right), 0)
+    }
+
+    #[test]
+    fn common_area_in_axis() {
+        let left = test_sensor(5, 0, 1);
+        let right = test_sensor(7, 0, 1);
+
+        assert_eq!(left.common_area(&right), 1)
+    }
+
+    fn v(x: i32, y: i32) -> Option<Vec2D<i32>> {
+        Some(Vec2D { x, y })
+    }
+
+    #[test]
+    fn circle_iter() {
+        let mut iter_r1 = ManhattenCircleRadiusIterator::new(Vec2D { x: 0, y: 0 }, 1);
+
+        assert_eq!(iter_r1.next(), Some(UP));
+        assert_eq!(iter_r1.next(), Some(RIGHT));
+        assert_eq!(iter_r1.next(), Some(DOWN));
+        assert_eq!(iter_r1.next(), Some(LEFT));
+        assert_eq!(iter_r1.next(), None);
+
+        let mut iter_r2 = ManhattenCircleRadiusIterator::new(Vec2D { x: 0, y: 0 }, 2);
+
+        assert_eq!(iter_r2.next(), v(0, -2));
+        assert_eq!(iter_r2.next(), v(1, -1));
+        assert_eq!(iter_r2.next(), v(2, 0));
+        assert_eq!(iter_r2.next(), v(1, 1));
+        assert_eq!(iter_r2.next(), v(0, 2));
+        assert_eq!(iter_r2.next(), v(-1, 1));
+        assert_eq!(iter_r2.next(), v(-2, 0));
+        assert_eq!(iter_r2.next(), v(-1, -1));
+        assert_eq!(iter_r2.next(), None);
     }
 }
 

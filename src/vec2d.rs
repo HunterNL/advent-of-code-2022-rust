@@ -1,7 +1,7 @@
 use std::{
     cmp,
     fmt::Debug,
-    ops::{Add, Sub},
+    ops::{Add, Mul, Sub},
     str::FromStr,
 };
 
@@ -86,6 +86,13 @@ impl Vec2D<i32> {
     pub fn normalize(&mut self) {
         self.x = sign(self.x);
         self.y = sign(self.y);
+    }
+
+    pub fn scale(&self, factor: i32) -> Vec2D<i32> {
+        Vec2D {
+            x: self.x * factor,
+            y: self.y * factor,
+        }
     }
 }
 
