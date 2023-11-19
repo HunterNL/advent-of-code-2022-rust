@@ -94,6 +94,63 @@ struct Sensor {
     radius: i32,
 }
 
+struct Line {
+    /// Where the line meets the y axis (x=0)
+    base: i32,
+
+    /// Distance from the axis to the start of the line
+    offset: i32,
+
+    /// Length of the line
+    length: i32,
+}
+
+enum LineDirection {
+    Up,
+    Down,
+}
+
+impl LineDirection {
+    fn get_vec(&self) -> Vec2D<i32> {
+        match self {
+            LineDirection::Up => Vec2D { x: 1, y: -1 },
+            LineDirection::Down => Vec2D { x: 1, y: 1 },
+        }
+    }
+}
+
+struct LineIterator {
+    offset: i32,
+    max_offset: i32,
+    base: i32,
+    dir: LineDirection,
+}
+
+impl Iterator for LineIterator {
+    type Item = Vec2D<i32>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset == self.max_offset {
+            return None;
+        }
+        self.offset += 1;
+
+        let dir = self.dir.get_vec();
+        Some(Vec2D { x: 0, y: self.base } + dir.scale(self.offset - 1))
+    }
+}
+
+impl Line {
+    fn iter(&self, dir: LineDirection) -> LineIterator {
+        LineIterator {
+            offset: self.offset,
+            max_offset: self.offset + self.length,
+            base: self.base,
+            dir,
+        }
+    }
+}
+
 impl Sensor {
     fn range_on_y_line(&self, y: i32) -> Option<Range> {
         let diff_y = (self.position.y - y).abs();
@@ -132,6 +189,36 @@ impl Sensor {
 
     fn cross_section(&self) -> i32 {
         (self.radius - 1) * 2 + 1
+    }
+
+    fn lines_up(&self) -> [Line; 2] {
+        let bottomright: Line = Line {
+            base: self.position.y + self.radius + self.position.x,
+            length: self.radius + 1,
+            offset: self.position.x,
+        };
+        let topleft: Line = Line {
+            base: self.position.y - self.radius + self.position.x,
+            length: self.radius + 1,
+            offset: self.position.x - self.radius,
+        };
+
+        [bottomright, topleft]
+    }
+
+    fn lines_down(&self) -> [Line; 2] {
+        let topright: Line = Line {
+            base: self.position.y - self.radius - self.position.x,
+            length: self.radius + 1,
+            offset: self.position.x,
+        };
+        let bottomleft: Line = Line {
+            base: self.position.y + self.radius - self.position.x,
+            length: self.radius + 1,
+            offset: self.position.x - self.radius,
+        };
+
+        [topright, bottomleft]
     }
 }
 
@@ -202,24 +289,84 @@ fn make_sensors(input: &str) -> Vec<Sensor> {
         .collect()
 }
 
+fn is_outside_sensor_range(sensors: &[Sensor], position: &Vec2D<i32>) -> bool {
+    sensors
+        .iter()
+        .all(|sensor| sensor.position.distance_manhatten(&position) > sensor.radius)
+}
+
 fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
     let is_in_range = |vec: &Vec2D<i32>| vec.x > 0 && vec.x <= max && vec.y > 0 && vec.y <= max;
 
-    //Find a sensor...
-    let pos = sensors.iter().find_map(|sensor| {
-        // ... where a point just outside its radius ...
-        ManhattenCircleRadiusIterator::new(sensor.position, sensor.radius + 1)
-            .filter(is_in_range)
-            .find(|test_position| {
-                // ... is outside the radius of all sensors
+    let up_lines: Vec<Line> = sensors
+        .iter()
+        .flat_map(|s| s.lines_up().into_iter())
+        .collect();
+    let down_lines: Vec<Line> = sensors
+        .iter()
+        .flat_map(|s| s.lines_down().into_iter())
+        .collect();
 
-                sensors
-                    .iter()
-                    .all(|sensor| sensor.position.distance_manhatten(test_position) > sensor.radius)
+    // up_lines.sort_unstable_by_key(|l| l.base);
+    // down_lines.sort_unstable_by_key(|l| l.base);
+
+    let possible_up_lines: Vec<Line> = up_lines
+        .iter()
+        .filter_map(|line| {
+            let other_line_exists = up_lines
+                .iter()
+                .any(|other_line| (line.base - other_line.base).abs() == 2);
+            other_line_exists.then_some(Line {
+                base: line.base - 1,
+                ..*line
             })
+        })
+        .collect();
+
+    let possible_down_lines: Vec<Line> = down_lines
+        .iter()
+        .filter_map(|line| {
+            let other_line_exists = up_lines
+                .iter()
+                .any(|other_line| (line.base - other_line.base).abs() == 2);
+            other_line_exists.then_some(Line {
+                base: line.base + 1,
+                ..*line
+            })
+        })
+        .collect();
+
+    let pos = possible_up_lines.iter().find_map(|line| {
+        line.iter(LineDirection::Up)
+            .filter(is_in_range)
+            .find(|pos| is_outside_sensor_range(sensors, pos))
     });
 
-    let pos = pos.expect("find_empty_spot to find a spot");
+    let pos = pos.or_else(|| {
+        possible_down_lines.iter().find_map(|line| {
+            line.iter(LineDirection::Down)
+                .filter(is_in_range)
+                .find(|pos| is_outside_sensor_range(sensors, pos))
+        })
+    });
+
+    // //Find a sensor...
+    // let pos = sensors.iter().find_map(|sensor| {
+    //     // ... where a point just outside its radius ...
+    //     ManhattenCircleRadiusIterator::new(sensor.position, sensor.radius + 1)
+    //         .filter(is_in_range)
+    //         .find(|test_position| {
+    //             // ... is outside the radius of all sensors
+
+    //             sensors
+    //                 .iter()
+    //                 .all(|sensor| sensor.position.distance_manhatten(test_position) > sensor.radius)
+    //         })
+    // });
+
+    // let pos = pos.expect("find_empty_spot to find a spot");
+
+    let pos = pos.expect("Should find something by now");
 
     (pos.x as u64) * 4000000 + pos.y as u64
 }
@@ -379,6 +526,57 @@ Sensor at x=20, y=1: closest beacon is at x=15, y=3";
         assert_eq!(iter_r2.next(), v(-2, 0));
         assert_eq!(iter_r2.next(), v(-1, -1));
         assert_eq!(iter_r2.next(), None);
+    }
+
+    #[test]
+    fn lines_up() {
+        /*
+        x------
+        |
+        |
+        |    2
+        |   212
+        5| 21012
+        |   212
+        |    2
+        |
+        |
+        10|
+        |
+        |
+        |
+         */
+        let [bottomright, topleft] = test_sensor(5, 5, 2).lines_up();
+        assert_eq!(bottomright.base, 12);
+        assert_eq!(bottomright.length, 3);
+        assert_eq!(bottomright.offset, 5);
+
+        assert_eq!(topleft.base, 8);
+        assert_eq!(topleft.length, 3);
+        assert_eq!(topleft.offset, 3);
+    }
+
+    #[test]
+    fn lines_down() {
+        let [topright, bottomleft] = test_sensor(5, 5, 2).lines_down();
+        assert_eq!(topright.base, -2);
+        assert_eq!(topright.length, 3);
+        assert_eq!(topright.offset, 5);
+
+        assert_eq!(bottomleft.base, 2);
+        assert_eq!(bottomleft.length, 3);
+        assert_eq!(bottomleft.offset, 3);
+    }
+
+    #[test]
+    fn line_iter() {
+        let [topright, _] = test_sensor(5, 5, 2).lines_down();
+
+        let mut iter = topright.iter(super::LineDirection::Down);
+        assert_eq!(iter.next(), Some(Vec2D { x: 5, y: 3 }));
+        assert_eq!(iter.next(), Some(Vec2D { x: 6, y: 4 }));
+        assert_eq!(iter.next(), Some(Vec2D { x: 7, y: 5 }));
+        assert_eq!(iter.next(), None);
     }
 }
 
