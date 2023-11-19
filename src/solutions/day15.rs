@@ -149,6 +149,17 @@ impl Line {
             dir,
         }
     }
+
+    /// Takes two lines, 2 base apart, returns the line that runs between
+    fn create_valley(&self, other: &Self) -> Line {
+        assert_eq!(self.base + 2, other.base);
+
+        Line {
+            base: self.base + 1,
+            offset: self.offset.max(other.offset),
+            length: self.length.min(other.length),
+        }
+    }
 }
 
 impl Sensor {
@@ -298,7 +309,7 @@ fn is_outside_sensor_range(sensors: &[Sensor], position: &Vec2D<i32>) -> bool {
 fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
     let is_in_range = |vec: &Vec2D<i32>| vec.x > 0 && vec.x <= max && vec.y > 0 && vec.y <= max;
 
-    let mut up_lines: Vec<Line> = sensors
+    let mut down_lines: Vec<Line> = sensors
         .iter()
         .flat_map(|s| s.lines_up().into_iter())
         .collect();
@@ -307,32 +318,26 @@ fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
         .flat_map(|s| s.lines_down().into_iter())
         .collect();
 
-    up_lines.sort_unstable_by_key(|l| l.base);
+    down_lines.sort_unstable_by_key(|l| l.base);
     down_lines.sort_unstable_by_key(|l| l.base);
 
-    let possible_up_lines: Vec<Line> = up_lines
+    let possible_up_lines: Vec<Line> = down_lines
         .iter()
         .filter_map(|line| {
-            let other_line_exists = up_lines
+            down_lines
                 .iter()
-                .any(|other_line| line.base + 2 == other_line.base);
-            other_line_exists.then_some(Line {
-                base: line.base + 1,
-                ..*line
-            })
+                .find(|other_line| line.base + 2 == other_line.base)
+                .map(|other_line| line.create_valley(other_line))
         })
         .collect();
 
     let possible_down_lines: Vec<Line> = down_lines
         .iter()
         .filter_map(|line| {
-            let other_line_exists = up_lines
+            down_lines
                 .iter()
-                .any(|other_line| line.base + 2 == other_line.base);
-            other_line_exists.then_some(Line {
-                base: line.base + 1,
-                ..*line
-            })
+                .find(|other_line| line.base + 2 == other_line.base)
+                .map(|other_line| line.create_valley(other_line))
         })
         .collect();
 
