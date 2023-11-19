@@ -298,26 +298,26 @@ fn is_outside_sensor_range(sensors: &[Sensor], position: &Vec2D<i32>) -> bool {
 fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
     let is_in_range = |vec: &Vec2D<i32>| vec.x > 0 && vec.x <= max && vec.y > 0 && vec.y <= max;
 
-    let up_lines: Vec<Line> = sensors
+    let mut up_lines: Vec<Line> = sensors
         .iter()
         .flat_map(|s| s.lines_up().into_iter())
         .collect();
-    let down_lines: Vec<Line> = sensors
+    let mut down_lines: Vec<Line> = sensors
         .iter()
         .flat_map(|s| s.lines_down().into_iter())
         .collect();
 
-    // up_lines.sort_unstable_by_key(|l| l.base);
-    // down_lines.sort_unstable_by_key(|l| l.base);
+    up_lines.sort_unstable_by_key(|l| l.base);
+    down_lines.sort_unstable_by_key(|l| l.base);
 
     let possible_up_lines: Vec<Line> = up_lines
         .iter()
         .filter_map(|line| {
             let other_line_exists = up_lines
                 .iter()
-                .any(|other_line| (line.base - other_line.base).abs() == 2);
+                .any(|other_line| line.base + 2 == other_line.base);
             other_line_exists.then_some(Line {
-                base: line.base - 1,
+                base: line.base + 1,
                 ..*line
             })
         })
@@ -328,7 +328,7 @@ fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
         .filter_map(|line| {
             let other_line_exists = up_lines
                 .iter()
-                .any(|other_line| (line.base - other_line.base).abs() == 2);
+                .any(|other_line| line.base + 2 == other_line.base);
             other_line_exists.then_some(Line {
                 base: line.base + 1,
                 ..*line
