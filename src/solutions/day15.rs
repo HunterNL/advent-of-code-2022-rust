@@ -43,51 +43,7 @@ struct Line {
     length: i32,
 }
 
-enum LineDirection {
-    Up,
-    Down,
-}
-
-impl LineDirection {
-    fn get_vec(&self) -> Vec2D<i32> {
-        match self {
-            LineDirection::Up => Vec2D { x: 1, y: -1 },
-            LineDirection::Down => Vec2D { x: 1, y: 1 },
-        }
-    }
-}
-
-struct LineIterator {
-    offset: i32,
-    max_offset: i32,
-    base: i32,
-    dir: LineDirection,
-}
-
-impl Iterator for LineIterator {
-    type Item = Vec2D<i32>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.offset == self.max_offset {
-            return None;
-        }
-        self.offset += 1;
-
-        let dir = self.dir.get_vec();
-        Some(Vec2D { x: 0, y: self.base } + dir.scale(self.offset - 1))
-    }
-}
-
 impl Line {
-    fn iter(&self, dir: LineDirection) -> LineIterator {
-        LineIterator {
-            offset: self.offset,
-            max_offset: self.offset + self.length,
-            base: self.base,
-            dir,
-        }
-    }
-
     /// Takes two lines, 2 base apart, returns the line that runs between
     fn create_valley(&self, other: &Self) -> Line {
         assert_eq!(self.base + 2, other.base);
@@ -97,6 +53,12 @@ impl Line {
             offset: self.offset.max(other.offset),
             length: self.length.min(other.length),
         }
+    }
+
+    fn intersection_point(&self, other: &Self) -> Vec2D<i32> {
+        let x = (-other.base + self.base) / 2;
+        let y = (self.base + other.base) / 2;
+        Vec2D { x, y }
     }
 }
 
@@ -233,7 +195,7 @@ fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
     up_lines.sort_unstable_by_key(|l| l.base);
     down_lines.sort_unstable_by_key(|l| l.base);
 
-    let possible_up_lines: Vec<Line> = up_lines
+    let up_line_valleys: Vec<Line> = up_lines
         .iter()
         .filter_map(|line| {
             up_lines
@@ -243,7 +205,7 @@ fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
         })
         .collect();
 
-    let possible_down_lines: Vec<Line> = down_lines
+    let down_line_valleys: Vec<Line> = down_lines
         .iter()
         .filter_map(|line| {
             down_lines
@@ -253,23 +215,25 @@ fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
         })
         .collect();
 
-    let pos = possible_up_lines.iter().find_map(|line| {
-        line.iter(LineDirection::Up)
-            .filter(is_in_range)
-            .find(|pos| is_outside_sensor_range(sensors, pos))
-    });
-
-    let pos = pos.or_else(|| {
-        possible_down_lines.iter().find_map(|line| {
-            line.iter(LineDirection::Down)
-                .filter(is_in_range)
-                .find(|pos| is_outside_sensor_range(sensors, pos))
+    // Iterate over every combination of valley lines
+    let intersection = up_line_valleys
+        .iter()
+        .find_map(|up_line| {
+            down_line_valleys.iter().find_map(|down_line| {
+                let position = up_line.intersection_point(down_line);
+                if is_in_range(&position) && is_outside_sensor_range(sensors, &position) {
+                    Some(position)
+                } else {
+                    None
+                }
+            })
         })
-    });
+        .expect("Intersection should be found");
 
-    let pos = pos.expect("Should find something by now");
+    assert!(is_in_range(&intersection));
+    assert!(is_outside_sensor_range(sensors, &intersection));
 
-    (pos.x as u64) * 4000000 + pos.y as u64
+    (intersection.x as u64) * 4000000 + intersection.y as u64
 }
 
 // https://adventofcode.com/2022/day/15
@@ -396,131 +360,4 @@ Sensor at x=20, y=1: closest beacon is at x=15, y=3";
         assert_eq!(bottomleft.length, 3);
         assert_eq!(bottomleft.offset, 3);
     }
-
-    #[test]
-    fn line_iter() {
-        let [topright, _] = test_sensor(5, 5, 2).lines_down();
-
-        let mut iter = topright.iter(super::LineDirection::Down);
-        assert_eq!(iter.next(), Some(Vec2D { x: 5, y: 3 }));
-        assert_eq!(iter.next(), Some(Vec2D { x: 6, y: 4 }));
-        assert_eq!(iter.next(), Some(Vec2D { x: 7, y: 5 }));
-        assert_eq!(iter.next(), None);
-    }
 }
-
-//     #[test]
-//     fn radius() {
-//         let sensor: Sensor = "Sensor at x=0, y=0: closest beacon is at x=1, y=0"
-//             .parse()
-//             .unwrap();
-
-//         assert_eq!(sensor.radius, 1)
-//     }
-
-//     #[test]
-//     fn size_on_line() {
-//         {
-//             let sensor: Sensor = "Sensor at x=5, y=0: closest beacon is at x=7, y=0"
-//                 .parse()
-//                 .unwrap();
-
-//             let range = sensor.range_on_y_line(1);
-
-//             let range = range.unwrap();
-
-//             assert_eq!(range.lower, 4);
-//             assert_eq!(range.upper, 6);
-//             assert_eq!(range.size(), 3)
-//         }
-//         {
-//             let sensor: Sensor = "Sensor at x=5, y=0: closest beacon is at x=7, y=0"
-//                 .parse()
-//                 .unwrap();
-
-//             let range = sensor.range_on_y_line(0);
-
-//             let range = range.unwrap();
-
-//             assert_eq!(range.lower, 3);
-//             assert_eq!(range.upper, 7);
-//             assert_eq!(range.size(), 5);
-//         }
-//         {
-//             let sensor: Sensor = "Sensor at x=5, y=0: closest beacon is at x=7, y=0"
-//                 .parse()
-//                 .unwrap();
-
-//             let range = sensor.range_on_y_line(2);
-
-//             let range = range.unwrap();
-
-//             assert_eq!(range.lower, 5);
-//             assert_eq!(range.upper, 5);
-//             assert_eq!(range.size(), 1);
-//         }
-//         {
-//             let sensor: Sensor = "Sensor at x=5, y=0: closest beacon is at x=7, y=0"
-//                 .parse()
-//                 .unwrap();
-
-//             let range = sensor.range_on_y_line(3);
-
-//             println!("{:?}", range);
-
-//             assert!(range.is_none())
-//         }
-//     }
-
-//     #[test]
-//     fn range_set_merge() {
-//         let mut set = RangeSet { ranges: vec![] };
-
-//         set.insert(super::Range { lower: 0, upper: 1 });
-
-//         set.insert(super::Range { lower: 1, upper: 2 });
-
-//         assert_eq!(set.ranges.len(), 1);
-
-//         let entry = set.ranges.remove(0);
-
-//         assert_eq!(entry.lower, 0);
-//         assert_eq!(entry.upper, 2);
-//     }
-
-//     #[test]
-//     fn range_set_touching_merge() {
-//         let mut set = RangeSet { ranges: vec![] };
-
-//         set.insert(super::Range { lower: 0, upper: 1 });
-
-//         set.insert(super::Range { lower: 2, upper: 3 });
-
-//         assert_eq!(set.ranges.len(), 1);
-
-//         let entry = set.ranges.remove(0);
-
-//         assert_eq!(entry.lower, 0);
-//         assert_eq!(entry.upper, 3);
-//     }
-
-//     #[test]
-//     fn range_remove() {
-//         let big_range: Range = (0, 10).into();
-//         let small_range: Range = (4, 6).into();
-
-//         let slices = big_range.remove(&small_range);
-
-//         let left_cut: Range = (0, 3).into();
-//         let right_cut: Range = (7, 10).into();
-
-//         assert_eq!(*slices.get(0).unwrap(), left_cut);
-//         assert_eq!(*slices.get(1).unwrap(), right_cut);
-//     }
-
-//     #[test]
-//     fn size() {
-//         let r = Range { lower: 2, upper: 3 };
-//         assert_eq!(r.size(), 2)
-//     }
-// }
