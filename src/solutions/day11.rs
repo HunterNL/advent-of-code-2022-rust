@@ -135,7 +135,6 @@ impl Monkey {
 /// Stateless monkey settings
 #[derive(Clone)]
 struct MonkeyBehaviour {
-    monkey_id: u32,
     starting_items: Vec<u64>,
     operation_operator: Operator,
     operation_operand: Operand,
@@ -157,14 +156,7 @@ struct MonkeyGame {
     monkeys: Vec<Monkey>,
     true_trow: ItemThrow,
     false_throw: ItemThrow,
-    divide_mode: DivideMode,
     g: u64,
-}
-
-#[derive(Clone, Copy)]
-enum DivideMode {
-    By3,
-    ByGCD(u64),
 }
 
 fn gcd(iter: impl Iterator<Item = u64>) -> u64 {
@@ -172,14 +164,10 @@ fn gcd(iter: impl Iterator<Item = u64>) -> u64 {
 }
 
 impl MonkeyGame {
-    fn new(monkeys: Vec<Monkey>, p2_div_mode: bool) -> Self {
+    fn new(monkeys: Vec<Monkey>) -> Self {
         let g = gcd(monkeys.iter().map(|m| m.behaviour.test_div));
 
         Self {
-            divide_mode: match p2_div_mode {
-                true => DivideMode::ByGCD(g),
-                false => DivideMode::By3,
-            },
             true_trow: ItemThrow {
                 items: Vec::new(),
                 target: 0,
@@ -271,13 +259,7 @@ impl FromStr for MonkeyBehaviour {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut line_iter = s.lines();
 
-        let id_line = line_iter.next().unwrap();
-        let id: u32 = id_line
-            .chars()
-            .nth(7)
-            .unwrap()
-            .to_digit(10)
-            .expect("digit < 10");
+        line_iter.next(); // Skip the monkey_id line
 
         let starting_line = line_iter.next().unwrap();
         let starting_items_comma_seperated: String = starting_line.chars().skip(18).collect();
@@ -303,7 +285,6 @@ impl FromStr for MonkeyBehaviour {
         let false_target = get_num_from_char_iter(line_iter.next().unwrap().chars());
 
         Ok(Self {
-            monkey_id: id,
             starting_items,
             operation_operator: operator,
             operation_operand: operand,
@@ -328,11 +309,8 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
         .map(|str| str.parse::<MonkeyBehaviour>().unwrap())
         .collect();
 
-    let mut p1_game = MonkeyGame::new(
-        behaviours.clone().into_iter().map(Monkey::new).collect(),
-        false,
-    );
-    let mut p2_game = MonkeyGame::new(behaviours.into_iter().map(Monkey::new).collect(), true);
+    let mut p1_game = MonkeyGame::new(behaviours.clone().into_iter().map(Monkey::new).collect());
+    let mut p2_game = MonkeyGame::new(behaviours.into_iter().map(Monkey::new).collect());
 
     for _ in 0..20 {
         p1_game.run_round(Part::Part1);
