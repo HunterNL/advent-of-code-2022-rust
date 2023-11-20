@@ -1,6 +1,7 @@
 use std::{
     cell::Cell,
     collections::{BinaryHeap, HashMap, HashSet},
+    io,
 };
 
 use crate::{grid::Grid, vec2d::Vec2D};
@@ -10,9 +11,12 @@ use super::{DayOutput, LogicError, PartResult};
 const START_MARKER: u8 = b'S';
 const END_MARKER: u8 = b'E';
 
-fn retrace_path(mut closed_set: HashMap<Vec2D<i32>, Node>, last_node: Node) -> Vec<Vec2D<i32>> {
+const VISUALIZE_PART_1: bool = false;
+const INTERACTIVE_PART_2: bool = false;
+
+fn retrace_path(mut closed_set: HashMap<Vec2D<i32>, Node>, last_node: &Node) -> Vec<Vec2D<i32>> {
     let mut path = vec![];
-    let mut last_node = last_node;
+    let mut last_node = last_node.clone();
     loop {
         let parent_pos = last_node.parent.get();
         if let Some(parent_pos) = parent_pos {
@@ -67,7 +71,10 @@ fn find_path_down(map: &Grid<u8>) -> usize {
             return node.cost_so_far;
         }
 
-        // print_with_coloring_p2(map, &frontier, &closed_set, &current_postion);
+        if INTERACTIVE_PART_2 {
+            print_with_coloring_p2(map, &frontier, &closed_set, &current_postion);
+            let _ = io::stdin().read_line(&mut String::new());
+        }
 
         let mut neighbours: Vec<Vec2D<i32>> = Vec::new();
 
@@ -209,7 +216,7 @@ fn find_path(map: &Grid<u8>) -> Vec<Vec2D<i32>> {
 
     while let Some(node) = frontier.pop() {
         if node.pos == end_pos {
-            return retrace_path(closed_set, node);
+            return retrace_path(closed_set, &node);
         }
 
         // println!("Frontier size: {}", frontier.len());
@@ -329,19 +336,15 @@ impl Ord for BFSNode {
     }
 }
 
-fn print_path_on_grid(path: &[Vec2D<i32>], map: &mut Grid<u8>) {
-    path.iter().for_each(|position| map.set(position, b'*'));
-}
-
 // https://adventofcode.com/2022/day/12
 pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     let grid = Grid::from_str(input);
     let p1_movements = find_path(&grid);
     let p2_len = find_path_down(&grid);
 
-    // println!("{}", grid);
-
-    // print_with_coloring(&mut grid, &movements);
+    if VISUALIZE_PART_1 {
+        print_with_coloring(&grid, &p1_movements);
+    }
 
     Ok(DayOutput {
         part1: Some(PartResult::Int(p1_movements.len() as i32)),
@@ -349,25 +352,7 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     })
 }
 
-fn filter_map_to_path(grid: &mut Grid<u8>, path: &[Vec2D<i32>]) {
-    let mut path_positions = HashSet::new();
-    for v in path {
-        path_positions.insert(*v);
-    }
-
-    grid.iter_mut_with_pos().for_each(|(pos, b)| {
-        if !path_positions.contains({
-            &Vec2D {
-                x: pos.x as i32,
-                y: pos.y as i32,
-            }
-        }) {
-            *b = b' ';
-        }
-    });
-}
-
-fn print_with_coloring(grid: &mut Grid<u8>, path: &[Vec2D<i32>]) {
+fn print_with_coloring(grid: &Grid<u8>, path: &[Vec2D<i32>]) {
     let mut path_positions = HashSet::new();
     for v in path {
         path_positions.insert(*v);
@@ -378,7 +363,9 @@ fn print_with_coloring(grid: &mut Grid<u8>, path: &[Vec2D<i32>]) {
             println!();
         }
         if *b == b'a' {
-            print!("{}", b' ' as char);
+            print!("\x1b[2m");
+            print!("{}", *b as char);
+            print!("\x1b[0m");
             return;
         }
         if path_positions.contains({
@@ -402,7 +389,8 @@ fn print_with_coloring(grid: &mut Grid<u8>, path: &[Vec2D<i32>]) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{grid::Grid, solutions::day12::filter_map_to_path};
+
+    use crate::{grid::Grid, solutions::day12::print_with_coloring};
 
     use super::find_path;
 
@@ -419,14 +407,10 @@ accszExk
 acctuvwj
 abdefghi";
 
-        let mut grid = Grid::from_str(str);
+        let grid = Grid::from_str(str);
         let movements = find_path(&grid);
 
-        println!("{grid}");
-
-        filter_map_to_path(&mut grid, &movements);
-
-        println!("{grid}");
+        print_with_coloring(&grid, &movements);
 
         assert_eq!(movements.len(), 31);
     }
