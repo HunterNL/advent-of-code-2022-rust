@@ -31,17 +31,17 @@ fn compare_lists(left_list: &Vec<ListItem>, right_list: &Vec<ListItem>) -> std::
 impl Ord for ListItem {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match self {
-            ListItem::List(left_list) => match other {
-                ListItem::List(right_list) => compare_lists(left_list, right_list),
-                ListItem::Int(right_int) => {
-                    compare_lists(left_list, &vec![ListItem::Int(*right_int)])
+            Self::List(left_list) => match other {
+                Self::List(right_list) => compare_lists(left_list, right_list),
+                Self::Int(right_int) => {
+                    compare_lists(left_list, &vec![Self::Int(*right_int)])
                 }
             },
-            ListItem::Int(left_int) => match other {
-                ListItem::List(right_list) => {
-                    compare_lists(&vec![ListItem::Int(*left_int)], right_list)
+            Self::Int(left_int) => match other {
+                Self::List(right_list) => {
+                    compare_lists(&vec![Self::Int(*left_int)], right_list)
                 }
-                ListItem::Int(right_int) => left_int.cmp(right_int),
+                Self::Int(right_int) => left_int.cmp(right_int),
             },
         }
     }
@@ -52,7 +52,7 @@ impl Ord for ListItem {
 fn read_int<I: Iterator<Item = char>>(iter: &mut Peekable<I>) -> Option<ListItem> {
     let mut s = String::new();
     while let Some(digit) = iter.next_if(char::is_ascii_digit) {
-        s.push(digit)
+        s.push(digit);
     }
 
     s.parse().map(ListItem::Int).ok()
@@ -79,7 +79,7 @@ fn read_list<I: Iterator<Item = char>>(iter: &mut Peekable<I>) -> Option<ListIte
 
     loop {
         if let Some(item) = read_item(iter) {
-            out.push(item)
+            out.push(item);
         }
 
         if iter.next_if_eq(&']').is_some() {
@@ -90,7 +90,7 @@ fn read_list<I: Iterator<Item = char>>(iter: &mut Peekable<I>) -> Option<ListIte
             iter.next().expect("Not to overrun iter"),
             ',',
             "Should consume a comma after a list item"
-        )
+        );
     }
 }
 
@@ -109,7 +109,7 @@ fn sum_indexes(packages: &[ListItem]) -> usize {
 
     for chunks in packages.chunks(2).enumerate() {
         if chunks.1[0].cmp(&chunks.1[1]) == Ordering::Less {
-            score += chunks.0 + 1
+            score += chunks.0 + 1;
         }
     }
     score
@@ -167,7 +167,7 @@ mod tests {
                 .expect("left side should parse")
                 .cmp(&right.parse::<ListItem>().expect("Right side should parse")),
             expected_ordering
-        )
+        );
     }
 
     fn parse_example_input() -> Vec<ListItem> {
@@ -246,11 +246,11 @@ mod tests {
 
     #[test]
     fn example_count() {
-        assert_eq!(sum_indexes(&parse_example_input()), 13)
+        assert_eq!(sum_indexes(&parse_example_input()), 13);
     }
 
     #[test]
     fn example_decoder() {
-        assert_eq!(decoder_key(parse_example_input()), 140)
+        assert_eq!(decoder_key(parse_example_input()), 140);
     }
 }

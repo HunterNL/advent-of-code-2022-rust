@@ -1,7 +1,6 @@
 use std::{
-    cmp,
     fmt::Debug,
-    ops::{Add, Mul, Sub},
+    ops::{Add, Sub},
     str::FromStr,
 };
 
@@ -23,8 +22,8 @@ where
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (left, right) = s.split_once(',').ok_or_else(|| "Could not split string")?;
-        let a: Vec2D<T> = Vec2D {
+        let (left, right) = s.split_once(',').ok_or("Could not split string")?;
+        let a: Self = Self {
             x: left.parse().map_err(|_| "Could not parse left")?,
             y: right.parse().map_err(|_| "Could not parse right")?,
         };
@@ -88,8 +87,8 @@ impl Vec2D<i32> {
         self.y = sign(self.y);
     }
 
-    pub fn scale(&self, factor: i32) -> Vec2D<i32> {
-        Vec2D {
+    pub fn scale(&self, factor: i32) -> Self {
+        Self {
             x: self.x * factor,
             y: self.y * factor,
         }
@@ -183,7 +182,7 @@ mod tests {
             Vec2D { x: 30, y: 0 },
         ];
 
-        let (min, max) = vectors.iter().cloned().inspect(|_| {}).bounds_iter();
+        let (min, max) = vectors.iter().copied().inspect(|_| {}).bounds_iter();
 
         assert_eq!(min.x, -17);
         assert_eq!(min.y, -42);

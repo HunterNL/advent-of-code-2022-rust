@@ -65,10 +65,10 @@ impl Ranging for (i32, i32) {
 
     fn overlap(&self, other: &Self) -> (i32, i32) {
         if self.overlaps(other) {
-            return other.clone();
+            return *other;
         }
         if other.overlaps(self) {
-            return self.clone();
+            return *self;
         }
 
         if self.1 > other.1 {
@@ -122,6 +122,6 @@ mod tests {
         let range = (17, 21);
         let cut = (20, 21);
 
-        assert_eq!(range.remove(&cut), vec![(17, 20)])
+        assert_eq!(range.remove(&cut), vec![(17, 20)]);
     }
 }

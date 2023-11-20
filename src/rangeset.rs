@@ -45,7 +45,7 @@ impl From<Result<usize, usize>> for PositionReport {
         //     }, // I
         // }
 
-        PositionReport {
+        Self {
             occupied: hit_n,
             in_range,
             range_start_index,
@@ -86,7 +86,7 @@ impl<'a> Iterator for RangeIterator<'a> {
 
 impl RangeSet {
     pub fn new_with_capacity(cap: usize) -> Self {
-        RangeSet(Vec::with_capacity(cap))
+        Self(Vec::with_capacity(cap))
     }
 
     pub fn len(&self) -> usize {
@@ -99,7 +99,7 @@ impl RangeSet {
         let right_index = self.position_report(range.1);
 
         let first_range_index = left_index.range_start_index;
-        let last_range_index = if right_index.in_range {
+        let _last_range_index = if right_index.in_range {
             right_index.range_start_index
         } else {
             first_range_index
@@ -156,48 +156,46 @@ impl RangeSet {
             return;
         }
 
-        if (index_dif == 1) {
-            if (left_index.in_range && (!right_index.in_range || right_index_hit_marker)) {
-                *self.0.get_mut(left_index.range_start_index + 1).unwrap() = new_range.1;
-                return;
-            }
+        if index_dif == 1 && left_index.in_range && (!right_index.in_range || right_index_hit_marker) {
+            *self.0.get_mut(left_index.range_start_index + 1).unwrap() = new_range.1;
+            return;
         }
 
-        if (left_index.in_range && right_index.index == len && range_dif > 2) {
+        if left_index.in_range && right_index.index == len && range_dif > 2 {
             // We've reached beyond the end of the vector, scrap everything between and insert the new end
             self.0.drain(left_index.range_start_index + 1..);
             self.0.push(new_range.1);
             return;
         }
 
-        if (left_index.index == 0
+        if left_index.index == 0
             && (right_index.in_range || right_index_hit_marker)
-            && range_dif > 2)
+            && range_dif > 2
         {
             //Start all the way trough right_index should be covered
-            self.0.drain(0..right_index.range_start_index + 1);
+            self.0.drain(0..=right_index.range_start_index);
             self.0.insert(0, new_range.0);
             return;
         }
 
-        if (range_dif > 2) {
-            if (left_index.in_range && (right_index.in_range || right_index_hit_marker)) {
+        if range_dif > 2 {
+            if left_index.in_range && (right_index.in_range || right_index_hit_marker) {
                 self.0
-                    .drain(left_index.range_start_index + 1..right_index.range_start_index + 1);
+                    .drain((left_index.range_start_index + 1)..=right_index.range_start_index);
                 return;
             }
 
-            if (left_index.in_range && !(right_index.in_range || right_index_hit_marker)) {
+            if left_index.in_range && !(right_index.in_range || right_index_hit_marker) {
                 self.0.insert(right_index.index + 1, new_range.1);
                 self.0
                     .drain(left_index.range_start_index + 1..right_index.range_start_index + 2);
                 return;
             }
 
-            if (left_index.occupied
+            if left_index.occupied
                 && !left_index.in_range
                 && !right_index.in_range
-                && !right_index.occupied)
+                && !right_index.occupied
             {
                 self.0.insert(right_index.index + 1, new_range.1);
                 self.0
@@ -205,23 +203,19 @@ impl RangeSet {
                 return;
             }
 
-            if (!left_index.occupied && left_index.index == 0) {
-                if (!right_index_hit_marker && !right_index.in_range) {
-                    self.0.drain(0..right_index.index);
-                    self.0.insert(0, new_range.1);
-                    return;
-                }
+            if !left_index.occupied && left_index.index == 0 && !right_index_hit_marker && !right_index.in_range {
+                self.0.drain(0..right_index.index);
+                self.0.insert(0, new_range.1);
+                return;
             }
         }
-        if (range_dif == 2) {
-            if (index_dif == 2) {
-                if (left_index.in_range && left_index.occupied && !right_index.in_range) {
-                    *self.0.get_mut(left_index.range_start_index + 1).unwrap() = new_range.1;
-                    return;
-                }
+        if range_dif == 2 {
+            if index_dif == 2 && left_index.in_range && left_index.occupied && !right_index.in_range {
+                *self.0.get_mut(left_index.range_start_index + 1).unwrap() = new_range.1;
+                return;
             }
 
-            if (index_dif == 3 && right_index.in_range && left_index.index > 0) {
+            if index_dif == 3 && right_index.in_range && left_index.index > 0 {
                 self.0.insert(left_index.index, new_range.0);
                 self.0.drain(left_index.index + 2..left_index.index + 4);
                 return;
@@ -243,13 +237,13 @@ impl RangeSet {
             return;
         }
 
-        if (left_index.index + 1 == right_index.index) {
-            if (!left_index.in_range && (right_index.in_range || right_index_hit_marker)) {
+        if left_index.index + 1 == right_index.index {
+            if !left_index.in_range && (right_index.in_range || right_index_hit_marker) {
                 *self.0.get_mut(left_index.range_start_index).unwrap() = new_range.0;
                 return;
             }
 
-            if (left_index.in_range && right_index.in_range || right_index_hit_marker) {
+            if left_index.in_range && right_index.in_range || right_index_hit_marker {
                 return;
             }
         }
@@ -288,34 +282,28 @@ impl RangeSet {
             }
         }
 
-        if (left_index.range_start_index + 2 == right_index.range_start_index) {
+        if left_index.range_start_index + 2 == right_index.range_start_index {
             // Positions hit two different sequential ranges
 
-            if (left_index.occupied && !left_index.in_range)
-                || left_index.in_range
-                || left_index.index == 0
-            {
-                if (right_index.in_range || right_index_hit_marker) {
-                    // Hit two ranges, overlapping both, just remove the entries keeping them seperate
-                    self.0.remove(left_index.range_start_index + 1);
-                    self.0.remove(left_index.range_start_index + 1);
-                    return;
-                }
+            if ((left_index.occupied && !left_index.in_range)
+                || left_index.in_range || left_index.index == 0) && (right_index.in_range || right_index_hit_marker) {
+                // Hit two ranges, overlapping both, just remove the entries keeping them seperate
+                self.0.remove(left_index.range_start_index + 1);
+                self.0.remove(left_index.range_start_index + 1);
+                return;
             }
 
             // We're entirely overlapping an existing range
-            if (!left_index.in_range && !left_index.occupied && !right_index.in_range) {
+            if !left_index.in_range && !left_index.occupied && !right_index.in_range {
                 *self.0.get_mut(left_index.range_start_index).unwrap() = new_range.0;
                 *self.0.get_mut(left_index.range_start_index + 1).unwrap() = new_range.1;
                 return;
             }
         }
 
-        if left_index.index + 1 == right_index.index && !right_index.in_range {
-            if left_index.occupied && !left_index.in_range {
-                *self.0.get_mut(left_index.index).unwrap() = new_range.1;
-                return;
-            }
+        if left_index.index + 1 == right_index.index && !right_index.in_range && left_index.occupied && !left_index.in_range {
+            *self.0.get_mut(left_index.index).unwrap() = new_range.1;
+            return;
         }
 
         println!("SLOW {}, {}", new_range.0, new_range.1);
@@ -324,14 +312,14 @@ impl RangeSet {
         // assert_ne!(overlaps.len(), 1); // Any code above should have handled the simple cases
         let mut remove_counter = 0;
         let mut range_accumelator = new_range;
-        for overlap in overlaps.into_iter() {
+        for overlap in overlaps {
             range_accumelator = range_accumelator.merge(&(overlap.1, overlap.2));
             self.0.remove(overlap.0 - remove_counter);
             self.0.remove(overlap.0 - remove_counter);
             remove_counter += 2;
         }
 
-        self.insert(range_accumelator)
+        self.insert(range_accumelator);
     }
 
     pub fn size(&self) -> i32 {
@@ -425,21 +413,21 @@ impl RangeSet {
         let mut remove_count = 0;
         let mut new_to_insert = vec![];
 
-        ranges.iter().for_each(|(index, low, high)| {
+        for (index, low, high) in &ranges {
             self.0.remove(index - remove_count);
             self.0.remove(index - remove_count);
             remove_count += 2;
 
             new_to_insert.extend((*low, *high).remove(&cut));
-        });
+        }
 
-        new_to_insert.into_iter().for_each(|r| self.insert(r))
+        new_to_insert.into_iter().for_each(|r| self.insert(r));
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::default;
+    
 
     use super::*;
 
@@ -518,7 +506,7 @@ mod tests {
         range.insert((13, 15));
         range.insert((9, 16));
 
-        assert_eq!(range.len(), 2)
+        assert_eq!(range.len(), 2);
     }
 
     #[test]
@@ -533,8 +521,8 @@ mod tests {
 
         let ranges: Vec<(i32, i32)> = range.iter_ranges().collect();
 
-        assert_eq!(*ranges.get(0).unwrap(), (10, 12));
-        assert_eq!(*ranges.get(1).unwrap(), (15, 20))
+        assert_eq!(*ranges.first().unwrap(), (10, 12));
+        assert_eq!(*ranges.get(1).unwrap(), (15, 20));
     }
 
     #[test]
@@ -607,7 +595,7 @@ mod tests {
         rs.insert((17, 21));
 
         let overlap = rs.overlapping_ranges((6, 11));
-        assert_eq!(overlap, vec![(0, 6, 8)])
+        assert_eq!(overlap, vec![(0, 6, 8)]);
     }
 
     #[test]

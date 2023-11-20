@@ -34,15 +34,13 @@ fn build_walls(input: &str) -> HashSet<Vec2D<i32>> {
         })
         .collect();
 
-    build_instructions.iter().for_each(|line| {
+    for line in &build_instructions {
         line.windows(2).for_each(|a| {
-            if a.len() != 2 {
-                panic!("Expected windows of length 2")
-            }
+            assert!(a.len() == 2, "Expected windows of length 2");
 
             insert_line(&a[0], &a[1], &mut walls);
-        })
-    });
+        });
+    }
 
     walls
 }
@@ -85,7 +83,7 @@ impl<'a> Iterator for SandPathIterator<'a> {
 // }
 
 fn print_cave(cave: &VecSet) {
-    let (min, max) = cave.iter().cloned().inspect(|_| {}).bounds_iter();
+    let (min, max) = cave.iter().copied().inspect(|_| {}).bounds_iter();
     let size = max - min;
     let size = size + Vec2D { x: 1, y: 1 };
 
@@ -101,13 +99,13 @@ fn print_cave(cave: &VecSet) {
 
     // println!("size: {:?}", size);
 
-    cave.iter().for_each(|pos| {
+    for pos in cave {
         let gridpos = *pos - min;
         // println!("{:?}", gridpos);
         grid.set(&gridpos, 'X');
-    });
+    }
 
-    println!("{}", grid);
+    println!("{grid}");
 }
 
 fn is_resting_spot(walls: &VecSet, position: Vec2D<i32>, floor: Option<i32>) -> bool {
@@ -185,7 +183,7 @@ fn find_blocked_source_count(mut walls: VecSet) -> i32 {
             resting_sand_count += 1;
         } else {
             path.push(current_position);
-            path.extend(SandPathIterator::new(current_position, &walls, floor))
+            path.extend(SandPathIterator::new(current_position, &walls, floor));
         }
     }
 
@@ -206,9 +204,9 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 
 #[cfg(test)]
 mod tests {
-    use std::{cmp::Ordering, str::FromStr};
+    
 
-    use crate::solutions::day14::{lowest_point, print_cave};
+    use crate::solutions::day14::{lowest_point};
 
     use super::{
         build_walls, find_abbys_count, sand_next_position, SandPathIterator, SAND_ENTRY_POINT,
@@ -251,7 +249,7 @@ mod tests {
             }
 
             path.push(next_pos.unwrap());
-            pos = next_pos.unwrap()
+            pos = next_pos.unwrap();
         }
 
         let mut iter_path = vec![SAND_ENTRY_POINT];
@@ -276,7 +274,7 @@ mod tests {
             }
 
             path.push(next_pos.unwrap());
-            pos = next_pos.unwrap()
+            pos = next_pos.unwrap();
         }
 
         let mut iter_path = vec![SAND_ENTRY_POINT];

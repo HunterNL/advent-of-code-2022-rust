@@ -45,10 +45,10 @@ struct Line {
 
 impl Line {
     /// Takes two lines, 2 base apart, returns the line that runs between
-    fn create_valley(&self, other: &Self) -> Line {
+    fn create_valley(&self, other: &Self) -> Self {
         assert_eq!(self.base + 2, other.base);
 
-        Line {
+        Self {
             base: self.base + 1,
             offset: self.offset.max(other.offset),
             length: self.length.min(other.length),
@@ -123,7 +123,7 @@ impl FromStr for Sensor {
             y: sensor_y,
         };
 
-        Ok(Sensor {
+        Ok(Self {
             position,
             beacon_position,
             radius: position.distance_manhatten(&beacon_position),
@@ -139,7 +139,7 @@ struct Range {
 
 impl From<(i32, i32)> for Range {
     fn from((lower, upper): (i32, i32)) -> Self {
-        Range { lower, upper }
+        Self { lower, upper }
     }
 }
 
@@ -233,7 +233,7 @@ fn find_empty_spot(sensors: &[Sensor], max: i32) -> u64 {
     assert!(is_in_range(&intersection));
     assert!(is_outside_sensor_range(sensors, &intersection));
 
-    (intersection.x as u64) * 4000000 + intersection.y as u64
+    (intersection.x as u64) * 4_000_000 + intersection.y as u64
 }
 
 // https://adventofcode.com/2022/day/15
@@ -297,7 +297,7 @@ Sensor at x=20, y=1: closest beacon is at x=15, y=3";
 
         let sensors = make_sensors(input);
 
-        assert_eq!(line_overlap_count(&sensors, 10), 26)
+        assert_eq!(line_overlap_count(&sensors, 10), 26);
     }
 
     #[test]
@@ -318,7 +318,7 @@ Sensor at x=14, y=3: closest beacon is at x=15, y=3
 Sensor at x=20, y=1: closest beacon is at x=15, y=3";
 
         let sensors = make_sensors(input);
-        assert_eq!(find_empty_spot(&sensors, SEARCH_MAX_P1), 56000011)
+        assert_eq!(find_empty_spot(&sensors, SEARCH_MAX_P1), 56_000_011);
     }
 
     #[test]

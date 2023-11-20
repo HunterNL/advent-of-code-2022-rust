@@ -99,22 +99,22 @@ pub enum Direction {
 }
 
 impl<T> Grid<T> {
-    pub fn new(width: usize, height: usize) -> Grid<T> {
+    pub fn new(width: usize, height: usize) -> Self {
         let mut content = Vec::new();
         content.reserve(width * height);
-        return Grid {
+        Self {
             bytes: content,
             width,
             height,
-        };
+        }
     }
 
-    pub fn new_with_content(content: Vec<T>, width: usize) -> Result<Grid<T>, String> {
+    pub fn new_with_content(content: Vec<T>, width: usize) -> Result<Self, String> {
         let len = content.len();
         if len % width != 0 {
             Err("Content length is not a multiple of width".to_string())
         } else {
-            Ok(Grid {
+            Ok(Self {
                 bytes: content,
                 width,
                 height: len / width,
@@ -339,7 +339,7 @@ impl Display for Grid<char> {
             .chunks(self.width)
             .try_for_each(|chunk| -> std::fmt::Result {
                 chunk.iter().try_for_each(|c| -> std::fmt::Result {
-                    f.write_fmt(format_args!("{}", c))?;
+                    f.write_fmt(format_args!("{c}"))?;
 
                     Ok(())
                 })?;
