@@ -1,4 +1,5 @@
 mod grid;
+mod parsing;
 mod range;
 mod rangeset;
 mod solutions;

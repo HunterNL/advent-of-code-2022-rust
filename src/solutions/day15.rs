@@ -1,5 +1,6 @@
 use std::{collections::HashSet, str::FromStr};
 
+use crate::parsing::consume_number_from_char_iter;
 use crate::vec2d::Vec2D;
 
 use crate::{range::Ranging, rangeset::RangeSet};
@@ -7,23 +8,6 @@ use crate::{range::Ranging, rangeset::RangeSet};
 use super::{DayOutput, LogicError};
 
 const SEARCH_MAX_P2: i32 = 4_000_000;
-
-/// Extends `char::is_ascii_digit` with `'-'` to easily select negative numbers
-fn is_number_char(char: &char) -> bool {
-    char.is_ascii_digit() || char == &'-'
-}
-
-fn consume_number_from_char_iter<T>(iter: &mut T) -> i32
-where
-    T: Iterator<Item = char>,
-{
-    let chars: String = iter
-        .skip_while(|char| !is_number_char(char))
-        .take_while(is_number_char)
-        .collect();
-
-    chars.parse().expect("Chars to parse into numbers")
-}
 
 #[derive(Debug)]
 struct Sensor {
