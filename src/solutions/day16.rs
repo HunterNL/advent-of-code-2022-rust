@@ -80,10 +80,10 @@ impl CaveSystem {
         find_shortest(caves, origin, target)
     }
 
-    fn possible_goals(&self, path: &Path) -> Vec<CaveId> {
+    fn possible_goals(&self, valves_opened: u64) -> Vec<CaveId> {
         let mut out = vec![];
         for cave in &self.caves_with_working_valve {
-            if 1 << cave.0 & path.valves_opened == 0 {
+            if 1 << cave.0 & valves_opened == 0 {
                 out.push(*cave);
             }
         }
@@ -281,42 +281,6 @@ impl FromStr for Cave {
     }
 }
 
-fn act(cave_system: &CaveSystem, path: Path) -> Vec<u32> {
-    if path.valves_opened_count == cave_system.caves_with_working_valve.len()
-        && path.minutes < MAX_CAVE_TIME
-    {
-        return vec![path.idle()];
-    }
-
-    if path.minutes == MAX_CAVE_TIME {
-        return vec![path.relieved_pressure];
-    }
-
-    let mut out = vec![];
-    let cave = cave_system.caves.get(path.position.0).unwrap();
-    if path.goal.is_some_and(|goal| goal == cave.id) {
-        let path = path.open_valve(path.position, cave.flow_rate);
-
-        let goals = cave_system.possible_goals(&path);
-        if goals.is_empty() {
-            return vec![path.idle()];
-        } else {
-            for goal in goals {
-                out.append(&mut act(cave_system, path.set_goal(goal)));
-            }
-        }
-    } else {
-        let next_id = cave
-            .paths
-            .get(path.goal.expect("Goal to exsist").0)
-            .expect("Path to have a path to goal");
-        let mut new_path = act(cave_system, path.travel(CaveId(*next_id)));
-        out.append(&mut new_path);
-    }
-
-    out
-}
-
 fn find_biggest_release(cave_system: CaveSystem) -> u32 {
     let start_cave_id = cave_system
         .caves
@@ -324,36 +288,65 @@ fn find_biggest_release(cave_system: CaveSystem) -> u32 {
         .position(|cave| cave.name == START_CAVE)
         .expect("start cave should be present in cave_system");
 
-    let path = Path {
+    let mut queue = vec![];
+
+    let goals = cave_system.possible_goals(0);
+
+    queue.extend(goals.into_iter().map(|caveid| Path {
         minutes: 0,
         open_valve_rate: 0,
         valves_opened: 0,
-
+        valves_opened_count: 0,
         relieved_pressure: 0,
         position: CaveId(start_cave_id),
-        valves_opened_count: 0,
-        goal: None,
-    };
+        goal: Some(caveid),
+    }));
 
-    let goals = cave_system.possible_goals(&path);
+    let mut biggest_release: u32 = 0;
 
-    let starting_paths: Vec<Path> = goals
-        .iter()
-        .map(|cave_id| Path {
-            goal: Some(*cave_id),
-            ..path
-        })
-        .collect();
+    while let Some(path) = queue.pop() {
+        if path.valves_opened_count == cave_system.caves_with_working_valve.len()
+            && path.minutes < MAX_CAVE_TIME
+        {
+            biggest_release = biggest_release.max(path.idle());
+            continue;
+        }
 
-    starting_paths
-        .into_iter()
-        .map(|f| {
-            let a = act(&cave_system, f);
-            let a = a.iter().max().unwrap();
-            *a
-        })
-        .max()
-        .unwrap()
+        if path.minutes == MAX_CAVE_TIME {
+            biggest_release = biggest_release.max(path.relieved_pressure);
+            continue;
+        }
+
+        let cave = cave_system.caves.get(path.position.0).unwrap();
+
+        // We've reached the goal
+        if path.goal.is_some_and(|goal| goal == cave.id) {
+            let path = path.open_valve(path.position, cave.flow_rate);
+
+            let goals = cave_system.possible_goals(path.valves_opened);
+
+            // We're done
+            if goals.is_empty() {
+                biggest_release = biggest_release.max(path.idle());
+                continue;
+            } else {
+                //Pick a new goal
+                for goal in goals {
+                    queue.push(path.set_goal(goal));
+                }
+            }
+        } else {
+            // Else travel to the goal
+            let next_id = cave
+                .paths
+                .get(path.goal.expect("Goal to exsist").0)
+                .expect("Path to have a path to goal");
+
+            queue.push(path.travel(CaveId(*next_id)));
+        }
+    }
+
+    biggest_release
 }
 
 // https://adventofcode.com/2022/day/16
