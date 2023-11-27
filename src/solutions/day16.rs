@@ -87,6 +87,9 @@ impl CaveSystem {
                 out.push(*cave);
             }
         }
+        // if (out.len() < 6) {
+        //     println!("{}", out.len());
+        // }
         out
     }
 }
@@ -234,15 +237,50 @@ impl Path {
         // }
     }
 
-    fn set_goal(&self, goal_cave: CaveId) -> Self {
+    fn set_goal(&self, goal_cave: Option<CaveId>) -> Self {
         Self {
-            goal: Some(goal_cave),
+            goal: goal_cave,
             ..*self
         }
     }
 
     fn has_opened_valve(&self, id: usize) -> bool {
         self.valves_opened & (1 << id) > 0
+    }
+
+    fn is_done(&self) -> bool {
+        self.minutes == MAX_CAVE_TIME || self.goal.is_none()
+    }
+
+    fn append_futures(&self, cave_system: &CaveSystem, queue: &mut Vec<Path>) {
+        assert!(!self.is_done());
+
+        let current_cave = cave_system.caves.get(self.position.0).unwrap();
+
+        // We've reached the goal
+        if self.goal.is_some_and(|goal| goal == self.position) {
+            let path = self.open_valve(self.position, current_cave.flow_rate);
+
+            let goals = cave_system.possible_goals(path.valves_opened);
+
+            // We're done
+            if goals.is_empty() {
+                queue.push(path.set_goal(None));
+            } else {
+                //Pick a new goal
+                for goal in goals {
+                    queue.push(path.set_goal(Some(goal)));
+                }
+            }
+        } else {
+            // Else travel to the goal
+            let next_id = current_cave
+                .paths
+                .get(self.goal.expect("Goal to exsist").0)
+                .expect("Path to have a path to goal");
+
+            queue.push(self.travel(CaveId(*next_id)));
+        }
     }
 }
 
@@ -305,44 +343,10 @@ fn find_biggest_release(cave_system: CaveSystem) -> u32 {
     let mut biggest_release: u32 = 0;
 
     while let Some(path) = queue.pop() {
-        if path.valves_opened_count == cave_system.caves_with_working_valve.len()
-            && path.minutes < MAX_CAVE_TIME
-        {
-            biggest_release = biggest_release.max(path.idle());
-            continue;
-        }
-
-        if path.minutes == MAX_CAVE_TIME {
-            biggest_release = biggest_release.max(path.relieved_pressure);
-            continue;
-        }
-
-        let cave = cave_system.caves.get(path.position.0).unwrap();
-
-        // We've reached the goal
-        if path.goal.is_some_and(|goal| goal == cave.id) {
-            let path = path.open_valve(path.position, cave.flow_rate);
-
-            let goals = cave_system.possible_goals(path.valves_opened);
-
-            // We're done
-            if goals.is_empty() {
-                biggest_release = biggest_release.max(path.idle());
-                continue;
-            } else {
-                //Pick a new goal
-                for goal in goals {
-                    queue.push(path.set_goal(goal));
-                }
-            }
+        if path.is_done() {
+            biggest_release = biggest_release.max(path.idle())
         } else {
-            // Else travel to the goal
-            let next_id = cave
-                .paths
-                .get(path.goal.expect("Goal to exsist").0)
-                .expect("Path to have a path to goal");
-
-            queue.push(path.travel(CaveId(*next_id)));
+            path.append_futures(&cave_system, &mut queue);
         }
     }
 
