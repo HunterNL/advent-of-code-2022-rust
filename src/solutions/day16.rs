@@ -25,12 +25,71 @@ impl Display for CaveName {
     }
 }
 
+impl From<(char, char)> for CaveName {
+    fn from(value: (char, char)) -> Self {
+        CaveName(value.0, value.1)
+    }
+}
+
 #[derive(Eq, Hash, PartialEq, Debug, Clone, Copy)]
 struct CaveId(usize);
+
+impl From<CaveId> for usize {
+    fn from(value: CaveId) -> Self {
+        value.0
+    }
+}
 
 struct CaveSystem {
     caves: Vec<Cave>,
     caves_with_working_valve: Vec<CaveId>,
+}
+
+fn explore_round(
+    caves: &[Cave],
+    closed_set: &mut HashMap<CaveId, u32>,
+    frontier: Vec<CaveId>,
+    round: u32,
+) -> Vec<CaveId> {
+    let mut new_frontier = vec![];
+
+    for cave_id in frontier {
+        closed_set.insert(cave_id, round);
+
+        let cave = caves.iter().find(|c| c.id == cave_id).unwrap();
+
+        for tunnel in &cave.tunnels {
+            if !closed_set.contains_key(tunnel) {
+                new_frontier.push(*tunnel)
+            }
+        }
+    }
+
+    new_frontier
+}
+
+fn calc_distances(caves: &mut Vec<Cave>, origin: usize) {
+    let mut seen = HashMap::new();
+    let mut frontier = vec![CaveId(origin)];
+
+    // Build up closed set
+    let mut round = 0;
+    while !frontier.is_empty() {
+        frontier = explore_round(caves, &mut seen, frontier, round);
+        round += 1;
+    }
+
+    for cave_id in 0..caves.len() {
+        if cave_id == origin {
+            caves.get_mut(origin).unwrap().paths.push(255);
+            continue;
+        }
+        caves
+            .get_mut(origin)
+            .unwrap()
+            .paths
+            .push(*seen.get(&CaveId(cave_id)).unwrap());
+    }
 }
 
 fn find_shortest(caves: &[Cave], origin: usize, target: usize) -> Vec<usize> {
@@ -126,20 +185,7 @@ impl CaveSystem {
         });
 
         for origin_id in 0..caves.len() {
-            for target_id in 0..caves.len() {
-                if origin_id == target_id {
-                    caves.get_mut(origin_id).unwrap().paths.push(255);
-                    continue;
-                }
-
-                let shortest_path = find_shortest(caves.as_slice(), origin_id, target_id);
-
-                caves
-                    .get_mut(origin_id)
-                    .unwrap()
-                    .paths
-                    .push(shortest_path.len() as u32)
-            }
+            calc_distances(&mut caves, origin_id)
         }
 
         caves
@@ -260,14 +306,14 @@ impl Path {
                 .iter()
                 .filter(|cave_id| !self.has_opened_valve(cave_id.0))
                 .filter_map(|target_id| {
-                    // let target_cave = cave_system.caves.get(target_id.0).unwrap();
-                    let travel_time = current_cave.paths.get(target_id.0).unwrap() - 1;
+                    let travel_time = current_cave.paths.get(target_id.0).unwrap();
                     let target = cave_system.caves.get(target_id.0).unwrap();
-                    // smallest_action_time = smallest_action_time.min(*path_len); // SIDE EFFECT
-                    if self.minutes + travel_time + 1 > MAX_CAVE_TIME {
+
+                    if self.minutes + travel_time + 1 >= MAX_CAVE_TIME {
+                        // +1 for effect time
                         None
                     } else {
-                        Some(self.travel(travel_time, *target_id, target.flow_rate))
+                        Some(self.travel(*travel_time, *target_id, target.flow_rate))
                     }
                 }),
         );
@@ -362,7 +408,7 @@ mod tests {
 
     use crate::solutions::day16::CaveSystem;
 
-    use super::find_biggest_release;
+    use super::{find_biggest_release, START_CAVE};
 
     static EXAMPLE_INPUT: &str = "Valve AA has flow rate=0; tunnels lead to valves DD, II, BB
 Valve BB has flow rate=13; tunnels lead to valves CC, AA
@@ -387,6 +433,21 @@ Valve JJ has flow rate=21; tunnel leads to valve II";
         let pressure = find_biggest_release(caves);
 
         assert_eq!(pressure, 1651);
+    }
+
+    #[test]
+    fn example_pathfinding() {
+        let caves = CaveSystem::from_str(EXAMPLE_INPUT);
+        let start_cave = caves.cave_by_name(START_CAVE).unwrap();
+        let c = caves.caves.get(start_cave.0).unwrap();
+
+        let neighbours = [('D', 'D'), ('I', 'I'), ('B', 'B')]
+            .into_iter()
+            .map(|a| a.into())
+            .map(|name| caves.cave_by_name(name).unwrap())
+            .for_each(|neighbour_cave_id| {
+                assert_eq!(*c.paths.get(neighbour_cave_id.0).unwrap(), 1);
+            });
     }
 
     // fn get_cave_id()
