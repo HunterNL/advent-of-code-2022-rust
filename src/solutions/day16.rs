@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     fmt::{Display, Write},
     str::FromStr,
     vec,
@@ -90,29 +90,6 @@ fn calc_distances(caves: &mut Vec<Cave>, origin: usize) {
             .paths
             .push(*seen.get(&CaveId(cave_id)).unwrap());
     }
-}
-
-fn find_shortest(caves: &[Cave], origin: usize, target: usize) -> Vec<usize> {
-    assert_ne!(origin, target);
-    let mut frontier = VecDeque::new();
-    frontier.push_back(vec![origin]);
-
-    while let Some(path) = frontier.pop_front() {
-        let cave_id = *path.last().unwrap();
-
-        if cave_id == target {
-            return path;
-        }
-
-        let cave = caves.get(cave_id).unwrap();
-        cave.tunnels.iter().for_each(|tunnel_id| {
-            let mut new_path = path.clone();
-            new_path.push(tunnel_id.0);
-            frontier.push_back(new_path);
-        });
-    }
-
-    panic!("Path not found")
 }
 
 impl Display for CaveSystem {
@@ -441,7 +418,7 @@ Valve JJ has flow rate=21; tunnel leads to valve II";
         let start_cave = caves.cave_by_name(START_CAVE).unwrap();
         let c = caves.caves.get(start_cave.0).unwrap();
 
-        let neighbours = [('D', 'D'), ('I', 'I'), ('B', 'B')]
+        [('D', 'D'), ('I', 'I'), ('B', 'B')]
             .into_iter()
             .map(|a| a.into())
             .map(|name| caves.cave_by_name(name).unwrap())
