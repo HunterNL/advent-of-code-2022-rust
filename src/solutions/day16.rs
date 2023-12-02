@@ -213,13 +213,51 @@ impl Display for Cave {
     }
 }
 
-struct Path {
+#[derive(Clone)]
+struct World {
     minutes: u32,
     open_valve_rate: u32,
     valves_opened: u64,
     valves_opened_count: usize,
     relieved_pressure: u32,
-    position: CaveId,
+}
+
+impl World {
+    fn new() -> Self {
+        World {
+            minutes: 0,
+            open_valve_rate: 0,
+            valves_opened: 0,
+            valves_opened_count: 0,
+            relieved_pressure: 0,
+        }
+    }
+
+    fn open_valve(&mut self, id: CaveId, rate: u32) {
+        let valve: u64 = 1 << id.0;
+        self.open_valve_rate += rate;
+        self.valves_opened |= valve;
+        self.valves_opened_count += 1;
+    }
+
+    fn advance_time(&mut self, time: u32) {
+        self.minutes += time;
+        self.relieved_pressure += self.open_valve_rate * time;
+    }
+
+    fn pressure_at_time(&self, time: u32) -> u32 {
+        assert!(time >= self.minutes);
+        let duration = time - self.minutes;
+        self.relieved_pressure + self.open_valve_rate * duration
+    }
+
+    fn has_opened_valve(&self, id: usize) -> bool {
+        self.valves_opened & (1 << id) > 0
+    }
+
+    // fn has_time_left(&self, max_time: u32) -> bool {
+    //     self.minutes < max_time
+    // }
 }
 
 fn possible_goals(valves_opened: u64, cave_count: u32) -> Vec<CaveId> {
@@ -232,62 +270,56 @@ fn possible_goals(valves_opened: u64, cave_count: u32) -> Vec<CaveId> {
     out
 }
 
-// //u32  PPPPPPPP
+struct Path {
+    world: World,
+    me: Traveler,
+}
+
+struct PathP2 {
+    world: World,
+    me: Traveler,
+    elephant: Traveler,
+}
+
+struct Traveler {
+    position: CaveId,
+    goal: Option<CaveId>,
+    goal_time: u32,
+}
+
+trait CavePath {
+    fn append_futures<T>(&self, cave_system: &CaveSystem, queue: &mut Vec<T>);
+}
 
 impl Path {
-    fn open_valve(&mut self, id: CaveId, rate: u32) {
-        let valve: u64 = 1 << id.0;
-
-        // Self {
-        self.minutes += 1;
-        self.relieved_pressure += self.open_valve_rate;
-        self.open_valve_rate += rate;
-        self.valves_opened |= valve;
-        self.valves_opened_count += 1;
-    }
-
     fn travel(&self, duration: u32, destination: CaveId, rate: u32) -> Self {
-        let mut a = Self {
-            minutes: self.minutes + duration,
-            position: destination,
-            relieved_pressure: self.relieved_pressure + (self.open_valve_rate * duration),
-            ..*self
-        };
-        a.open_valve(destination, rate);
-        a
-    }
+        let mut world = self.world.clone();
+        world.advance_time(duration + 1);
+        world.open_valve(destination, rate);
 
-    fn idle(&self) -> u32 {
-        let minutes_to_idle = MAX_CAVE_TIME - self.minutes;
-        self.relieved_pressure + self.open_valve_rate * minutes_to_idle
-    }
-
-    fn has_opened_valve(&self, id: usize) -> bool {
-        self.valves_opened & (1 << id) > 0
-    }
-
-    fn is_done(&self) -> bool {
-        self.minutes == MAX_CAVE_TIME // || self.goal.is_none()
-    }
-
-    fn append_futures(&self, cave_system: &CaveSystem, queue: &mut Vec<Path>) {
-        if self.is_done() {
-            return;
+        Self {
+            me: Traveler {
+                position: destination,
+                goal: None,
+                goal_time: world.minutes,
+            },
+            world,
         }
+    }
 
-        let current_cave = cave_system.caves.get(self.position.0).unwrap();
+    fn append_futures(&self, cave_system: &CaveSystem, queue: &mut Vec<Path>, max_time: u32) {
+        let current_cave = cave_system.caves.get(self.me.position.0).unwrap();
 
         queue.extend(
             cave_system
                 .caves_with_working_valve
                 .iter()
-                .filter(|cave_id| !self.has_opened_valve(cave_id.0))
+                .filter(|cave_id| !self.world.has_opened_valve(cave_id.0))
                 .filter_map(|target_id| {
                     let travel_time = current_cave.paths.get(target_id.0).unwrap();
                     let target = cave_system.caves.get(target_id.0).unwrap();
 
-                    if self.minutes + travel_time + 1 >= MAX_CAVE_TIME {
-                        // +1 for effect time
+                    if self.world.minutes + travel_time >= max_time {
                         None
                     } else {
                         Some(self.travel(*travel_time, *target_id, target.flow_rate))
@@ -295,7 +327,82 @@ impl Path {
                 }),
         );
     }
+
+    fn next_action_time(&self) -> u32 {
+        todo!()
+    }
+
+    fn advance(&mut self) {
+        todo!()
+    }
 }
+
+// impl CavePath for PathP2 {
+//     fn open_valve(&mut self, id: CaveId, rate: u32) {
+//         let valve: u64 = 1 << id.0;
+
+//         // Self {
+//         self.minutes += 1;
+//         self.relieved_pressure += self.open_valve_rate;
+//         self.open_valve_rate += rate;
+//         self.valves_opened |= valve;
+//         self.valves_opened_count += 1;
+//     }
+
+//     fn travel(&self, duration: u32, destination: CaveId, rate: u32, traveler: Traveler) -> Self {
+//         let mut a = Self {
+//             minutes: self.minutes + duration,
+//             position: destination,
+//             relieved_pressure: self.relieved_pressure + (self.open_valve_rate * duration),
+//             ..*self
+//         };
+//         a.open_valve(destination, rate);
+//         a
+//     }
+
+//     fn idle(&self) -> u32 {
+//         let minutes_to_idle = MAX_CAVE_TIME - self.minutes;
+//         self.relieved_pressure + self.open_valve_rate * minutes_to_idle
+//     }
+
+//     fn has_opened_valve(&self, id: usize) -> bool {
+//         self.valves_opened & (1 << id) > 0
+//     }
+
+//     fn is_done(&self) -> bool {
+//         self.minutes == MAX_CAVE_TIME // || self.goal.is_none()
+//     }
+
+//     fn append_futures(&self, cave_system: &CaveSystem, queue: &mut Vec<Path>) {
+//         if self.is_done() {
+//             return;
+//         }
+
+//         let current_cave = cave_system.caves.get(self.position.0).unwrap();
+
+//         queue.extend(
+//             cave_system
+//                 .caves_with_working_valve
+//                 .iter()
+//                 .filter(|cave_id| !self.has_opened_valve(cave_id.0))
+//                 .filter_map(|target_id| {
+//                     let travel_time = current_cave.paths.get(target_id.0).unwrap();
+//                     let target = cave_system.caves.get(target_id.0).unwrap();
+
+//                     if self.minutes + travel_time + 1 >= MAX_CAVE_TIME {
+//                         // +1 for effect time
+//                         None
+//                     } else {
+//                         Some(self.travel(*travel_time, *target_id, target.flow_rate))
+//                     }
+//                 }),
+//         );
+//     }
+
+//     fn next_action_time(&self) -> u32 {
+//         self.me.goal_time.min(self.elephant.goal_time)
+//     }
+// }
 struct CavePrototype {
     name: CaveName,
     tunnels: Vec<CaveName>,
@@ -340,26 +447,19 @@ fn find_biggest_release(cave_system: CaveSystem) -> u32 {
         .expect("start cave should be present in cave_system");
 
     let mut queue = vec![Path {
-        minutes: 0,
-        open_valve_rate: 0,
-        valves_opened: 0,
-        valves_opened_count: 0,
-        relieved_pressure: 0,
-        position: start_cave_id,
+        world: World::new(),
+        me: Traveler {
+            position: start_cave_id,
+            goal: None,
+            goal_time: 0,
+        },
     }];
 
     let mut biggest_release: u32 = 0;
 
     while let Some(path) = queue.pop() {
-        let queue_size = queue.len();
-        path.append_futures(&cave_system, &mut queue);
-        let new_queue_size = queue.len();
-
-        let is_done = queue_size == new_queue_size;
-
-        if is_done {
-            biggest_release = biggest_release.max(path.idle())
-        }
+        path.append_futures(&cave_system, &mut queue, MAX_CAVE_TIME);
+        biggest_release = biggest_release.max(path.world.pressure_at_time(MAX_CAVE_TIME))
     }
 
     biggest_release
@@ -368,10 +468,6 @@ fn find_biggest_release(cave_system: CaveSystem) -> u32 {
 // https://adventofcode.com/2022/day/16
 pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     let caves = CaveSystem::from_str(input);
-    println!(
-        "Caves with valves: {}",
-        caves.caves_with_working_valve.len()
-    );
     let pressure = find_biggest_release(caves);
 
     Ok(DayOutput {
@@ -383,7 +479,7 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 #[cfg(test)]
 mod tests {
 
-    use crate::solutions::day16::CaveSystem;
+    use crate::solutions::day16::{CaveSystem, Path, Traveler, World};
 
     use super::{find_biggest_release, START_CAVE};
 
@@ -427,31 +523,34 @@ Valve JJ has flow rate=21; tunnel leads to valve II";
             });
     }
 
-    // fn get_cave_id()
+    #[test]
+    fn sequence() {
+        let cave_time = 30;
+        let caves = CaveSystem::from_str(EXAMPLE_INPUT);
+        let start_cave_id = caves.cave_by_name(super::CaveName('A', 'A')).unwrap();
+        let first_cave_id = caves.cave_by_name(super::CaveName('D', 'D')).unwrap();
+        let second_cave_id = caves.cave_by_name(super::CaveName('B', 'B')).unwrap();
 
-    // #[test]
-    // fn sequence() {
-    //     let caves = CaveSystem::from_str(EXAMPLE_INPUT);
-    //     let start_cave_id = caves.cave_by_name(super::CaveName('A', 'A')).unwrap();
-    //     let first_cave_id = caves.cave_by_name(super::CaveName('D', 'D')).unwrap();
+        let mut path = Path {
+            world: World::new(),
+            me: Traveler {
+                position: start_cave_id,
+                goal: None,
+                goal_time: 0,
+            },
+        };
 
-    //     let mut path = Path {
-    //         minutes: 0,
-    //         open_valve_rate: 0,
-    //         valves_opened: 0,
-    //         valves_opened_count: 0,
-    //         relieved_pressure: 0,
-    //         position: start_cave_id,
-    //     };
+        assert_eq!(path.world.pressure_at_time(cave_time), 0);
 
-    //     assert_eq!(path.idle(), 0);
+        path = path.travel(1, first_cave_id, 20);
+        assert_eq!(path.world.minutes, 2);
+        assert_eq!(path.world.relieved_pressure, 0);
+        assert_eq!(path.world.open_valve_rate, 20);
 
-    //     path = path.travel(1, start_cave_id, 20);
-    //     assert_eq!(path.minutes, 2);
-    // assert_eq!(path.relieved_pressure, 0)
+        path = path.travel(2, second_cave_id, 13);
+        assert_eq!(path.world.minutes, 5);
+        assert_eq!(path.world.open_valve_rate, 33);
 
-    // path = path.travel(2, destination, rate)
-
-    // path.
-    // }
+        // path = path.travel(2, destination, rate)
+    }
 }
