@@ -5,9 +5,6 @@
     "debug.allowBreakpointsEverywhere": true,
     "rust-analyzer.checkOnSave": true,
     "rust-analyzer.inlayHints.parameterHints.enable": false,
-    "rust-analyzer.linkedProjects": [
-        ".\\Cargo.toml"
-    ],
     "rust-analyzer.inlayHints.bindingModeHints.enable": true,
     "editor.inlayHints.padding": false,
     "terminal.integrated.env.windows": {

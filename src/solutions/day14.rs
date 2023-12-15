@@ -78,10 +78,7 @@ impl<'a> Iterator for SandPathIterator<'a> {
     }
 }
 
-// fn sand_path_iter(cave: &VecSet) -> SandPathIterator {
-
-// }
-
+#[allow(dead_code)]
 fn print_cave(cave: &VecSet) {
     let (min, max) = cave.iter().copied().inspect(|_| {}).bounds_iter();
     let size = max - min;
@@ -204,9 +201,8 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 
 #[cfg(test)]
 mod tests {
-    
 
-    use crate::solutions::day14::{lowest_point};
+    use crate::solutions::day14::lowest_point;
 
     use super::{
         build_walls, find_abbys_count, sand_next_position, SandPathIterator, SAND_ENTRY_POINT,

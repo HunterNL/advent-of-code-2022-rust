@@ -165,7 +165,7 @@ impl Display for DayOutput {
 fn print_result(r: Result<SolutionOutput, DayError>) {
     match r {
         Ok(s) => println!(
-            "Day {:2}: {:4}ms [{}|{}]",
+            "Day {:2}: {:5}ms [{}|{}]",
             s.day_number,
             s.duration.as_millis(),
             s.values

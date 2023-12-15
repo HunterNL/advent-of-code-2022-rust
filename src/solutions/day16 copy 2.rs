@@ -53,8 +53,7 @@ fn explore_round(
     let mut new_frontier = vec![];
 
     for cave_id in frontier {
-        closed_set.entry(cave_id).or_insert(round);
-        // closed_set.insert(cave_id, round);
+        closed_set.insert(cave_id, round);
 
         let cave = caves.iter().find(|c| c.id == cave_id).unwrap();
 
@@ -597,19 +596,11 @@ impl Path {
         max_cave_time: u32,
         left_options: &mut Vec<Goal>,
         right_options: &mut Vec<Goal>,
-        max: &mut u32,
-    ) {
+    ) -> u32 {
         let time = self.world.minutes;
-        if time == max_cave_time {
-            let res = self.world.pressure_at_time(max_cave_time);
-            if res > *max {
-                *max = res;
-            }
-        }
-
         if time > max_cave_time || (self.me.goal == Goal::Idle && self.elephant.goal == Goal::Idle)
         {
-            return;
+            return self.world.pressure_at_time(max_cave_time);
         } else {
             // queue.push(self.clone());
         }
@@ -627,24 +618,24 @@ impl Path {
                 Goal::None => false,
             };
             if abort {
-                return;
-            } else {
-                let me_cave = cave_system.caves.get(self.me.position.0).unwrap();
-                left_options.push(Goal::Idle);
-                left_options.extend(
-                    self.world
-                        .closed_valves(cave_system)
-                        .filter(|cave| {
-                            let effect_time = me_cave.paths.get(cave.0).unwrap() + 1;
-                            self.world.minutes + effect_time < max_cave_time
-                        })
-                        .map(|cave| {
-                            let effect_time = me_cave.paths.get(cave.0).unwrap() + 1;
-                            let rate = cave_system.caves.get(cave.0).unwrap().flow_rate;
-                            Goal::MoveTo(*cave, self.world.minutes + effect_time, rate)
-                        }),
-                );
+                return self.world.pressure_at_time(max_cave_time);
             }
+
+            let me_cave = cave_system.caves.get(self.me.position.0).unwrap();
+            left_options.push(Goal::Idle);
+            left_options.extend(
+                self.world
+                    .closed_valves(cave_system)
+                    .filter(|cave| {
+                        let effect_time = me_cave.paths.get(cave.0).unwrap() + 1;
+                        self.world.minutes + effect_time <= max_cave_time
+                    })
+                    .map(|cave| {
+                        let effect_time = me_cave.paths.get(cave.0).unwrap() + 1;
+                        let rate = cave_system.caves.get(cave.0).unwrap().flow_rate;
+                        Goal::MoveTo(*cave, self.world.minutes + effect_time, rate)
+                    }),
+            );
         } else {
             left_options.push(self.me.goal.clone());
         }
@@ -659,24 +650,24 @@ impl Path {
                 Goal::None => false,
             };
             if abort {
-                return;
-            } else {
-                let ele_cave = cave_system.caves.get(self.elephant.position.0).unwrap();
-                right_options.push(Goal::Idle);
-                right_options.extend(
-                    self.world
-                        .closed_valves(cave_system)
-                        .filter(|cave| {
-                            let effect_time = ele_cave.paths.get(cave.0).unwrap() + 1;
-                            self.world.minutes + effect_time < max_cave_time
-                        })
-                        .map(|cave| {
-                            let effect_time = ele_cave.paths.get(cave.0).unwrap() + 1;
-                            let rate = cave_system.caves.get(cave.0).unwrap().flow_rate;
-                            Goal::MoveTo(*cave, self.world.minutes + effect_time, rate)
-                        }),
-                );
+                return self.world.pressure_at_time(max_cave_time);
             }
+
+            let ele_cave = cave_system.caves.get(self.elephant.position.0).unwrap();
+            right_options.push(Goal::Idle);
+            right_options.extend(
+                self.world
+                    .closed_valves(cave_system)
+                    .filter(|cave| {
+                        let effect_time = ele_cave.paths.get(cave.0).unwrap() + 1;
+                        self.world.minutes + effect_time <= max_cave_time
+                    })
+                    .map(|cave| {
+                        let effect_time = ele_cave.paths.get(cave.0).unwrap() + 1;
+                        let rate = cave_system.caves.get(cave.0).unwrap().flow_rate;
+                        Goal::MoveTo(*cave, self.world.minutes + effect_time, rate)
+                    }),
+            );
 
             // return self.world.pressure_at_time(max_cave_time);
         } else {
@@ -692,16 +683,7 @@ impl Path {
             });
         });
 
-        // if left_options.len() * right_options.len() > 10 && false {
-        //     println!(
-        //         "Left|Right {:2}|{:2} ({:3})",
-        //         left_options.len(),
-        //         right_options.len(),
-        //         left_options.len() * right_options.len()
-        //     )
-        // };
-
-        // self.world.pressure_at_time(max_cave_time)
+        self.world.pressure_at_time(max_cave_time)
 
         // if self.me.goal.is_none() {
         //     let mut p = self.clone();
@@ -1020,7 +1002,7 @@ fn find_biggest_release(cave_system: &CaveSystem) -> u32 {
     let mut queue = vec![initial_path];
 
     let mut biggest_release: u32 = 0;
-    // let mut iter = 0;
+    let mut iter = 0;
 
     let mut left = vec![];
     let mut right = vec![];
@@ -1030,22 +1012,14 @@ fn find_biggest_release(cave_system: &CaveSystem) -> u32 {
         // biggest_release = biggest_release.max(path.world.pressure_at_time(30));
         path.world.advance_time_to(path.next_action_time(30));
         // biggest_release = pressure.max(biggest_release);
-
-        path.futures(
-            cave_system,
-            &mut queue,
-            30,
-            &mut left,
-            &mut right,
-            &mut biggest_release,
-        );
-        // biggest_release = pressure.max(biggest_release);
+        let pressure = path.futures(cave_system, &mut queue, 30, &mut left, &mut right);
+        biggest_release = pressure.max(biggest_release);
         // biggest_release = biggest_release.max(path.world.pressure_at_time(30));
-        // iter += 1;
-        // if iter == 10_000 {
-        //     println!("{}", queue.len());
-        //     iter = 0;
-        // }
+        iter += 1;
+        if iter == 10_000 {
+            println!("{}", queue.len());
+            iter = 0;
+        }
     }
 
     biggest_release
@@ -1055,6 +1029,8 @@ fn find_biggest_release_with_elephant(cave_system: &CaveSystem) -> u32 {
     let start_cave_id = cave_system
         .cave_by_name(START_CAVE)
         .expect("start cave should be present in cave_system");
+
+    println!("Part 2 start");
 
     let mut queue = vec![Path {
         // history: vec![],
@@ -1077,19 +1053,19 @@ fn find_biggest_release_with_elephant(cave_system: &CaveSystem) -> u32 {
     // path.futures(cave_system, &mut queue, 26, &mut left, &mut right);
 
     let mut biggest_release: u32 = 0;
+    let mut iter = 0;
 
     while let Some(mut path) = queue.pop() {
         // path.resolve_actions(cave_system, 26);
         // biggest_release = biggest_release.max(path.world.pressure_at_time(26));
         path.world.advance_time_to(path.next_action_time(26));
-        path.futures(
-            cave_system,
-            &mut queue,
-            26,
-            &mut left,
-            &mut right,
-            &mut biggest_release,
-        );
+        let pressure = path.futures(cave_system, &mut queue, 26, &mut left, &mut right);
+        biggest_release = biggest_release.max(pressure);
+        iter += 1;
+        if iter == 20_000000 {
+            println!("{}", queue.len());
+            iter = 0;
+        }
     }
 
     biggest_release
@@ -1099,7 +1075,7 @@ fn find_biggest_release_with_elephant(cave_system: &CaveSystem) -> u32 {
 pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     let caves = CaveSystem::from_str(input);
 
-    // println!("{}", caves);
+    println!("{}", caves);
     let pressure = find_biggest_release(&caves);
     let p2 = find_biggest_release_with_elephant(&caves);
 
@@ -1131,7 +1107,7 @@ Valve II has flow rate=0; tunnels lead to valves AA, JJ
 Valve JJ has flow rate=21; tunnel leads to valve II";
 
     #[test]
-    #[ignore = "performance"]
+    #[ignore = "wip"]
     fn day() -> Result<(), String> {
         super::super::tests::test_day(16, super::solve)
     }

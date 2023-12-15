@@ -1,3 +1,18 @@
+//
+//
+//
+//
+//
+//
+// This place is not a place of honor... no highly esteemed deed is commemorated here... nothing valued is here.
+//
+//             What is here was dangerous and repulsive to us. This message is a warning about danger.
+//
+//
+//
+//
+//
+//
 use crate::range::Ranging;
 
 #[derive(Default, Debug, Clone)]
@@ -124,6 +139,7 @@ impl RangeSet {
 
     // This has grown into an insane tree of edge cases that should be faster then the wastfully slow fallback option
     // I'd love to simplify this somewhat but oh dear
+    #[allow(clippy::nonminimal_bool)]
     pub fn insert(&mut self, new_range: (i32, i32)) {
         let len = self.0.len();
 
@@ -156,7 +172,10 @@ impl RangeSet {
             return;
         }
 
-        if index_dif == 1 && left_index.in_range && (!right_index.in_range || right_index_hit_marker) {
+        if index_dif == 1
+            && left_index.in_range
+            && (!right_index.in_range || right_index_hit_marker)
+        {
             *self.0.get_mut(left_index.range_start_index + 1).unwrap() = new_range.1;
             return;
         }
@@ -203,14 +222,19 @@ impl RangeSet {
                 return;
             }
 
-            if !left_index.occupied && left_index.index == 0 && !right_index_hit_marker && !right_index.in_range {
+            if !left_index.occupied
+                && left_index.index == 0
+                && !right_index_hit_marker
+                && !right_index.in_range
+            {
                 self.0.drain(0..right_index.index);
                 self.0.insert(0, new_range.1);
                 return;
             }
         }
         if range_dif == 2 {
-            if index_dif == 2 && left_index.in_range && left_index.occupied && !right_index.in_range {
+            if index_dif == 2 && left_index.in_range && left_index.occupied && !right_index.in_range
+            {
                 *self.0.get_mut(left_index.range_start_index + 1).unwrap() = new_range.1;
                 return;
             }
@@ -286,7 +310,10 @@ impl RangeSet {
             // Positions hit two different sequential ranges
 
             if ((left_index.occupied && !left_index.in_range)
-                || left_index.in_range || left_index.index == 0) && (right_index.in_range || right_index_hit_marker) {
+                || left_index.in_range
+                || left_index.index == 0)
+                && (right_index.in_range || right_index_hit_marker)
+            {
                 // Hit two ranges, overlapping both, just remove the entries keeping them seperate
                 self.0.remove(left_index.range_start_index + 1);
                 self.0.remove(left_index.range_start_index + 1);
@@ -301,7 +328,11 @@ impl RangeSet {
             }
         }
 
-        if left_index.index + 1 == right_index.index && !right_index.in_range && left_index.occupied && !left_index.in_range {
+        if left_index.index + 1 == right_index.index
+            && !right_index.in_range
+            && left_index.occupied
+            && !left_index.in_range
+        {
             *self.0.get_mut(left_index.index).unwrap() = new_range.1;
             return;
         }
@@ -427,7 +458,6 @@ impl RangeSet {
 
 #[cfg(test)]
 mod tests {
-    
 
     use super::*;
 
