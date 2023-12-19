@@ -8,6 +8,7 @@ mod day13;
 mod day14;
 mod day15;
 mod day16;
+mod day17;
 mod day2;
 mod day3;
 mod day4;
@@ -130,6 +131,7 @@ pub fn run() {
     print_result(run_day(14, day14::solve));
     print_result(run_day(15, day15::solve));
     print_result(run_day(16, day16::solve));
+    print_result(run_day(17, day17::solve));
 }
 
 impl Display for PartResult {

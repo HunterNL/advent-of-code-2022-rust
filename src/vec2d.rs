@@ -31,7 +31,10 @@ where
     }
 }
 
-impl Sub for Vec2D<i32> {
+impl<T> Sub for Vec2D<T>
+where
+    T: Sub<Output = T>,
+{
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -42,7 +45,10 @@ impl Sub for Vec2D<i32> {
     }
 }
 
-impl Add for Vec2D<i32> {
+impl<T> Add for Vec2D<T>
+where
+    T: Add<Output = T>,
+{
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
