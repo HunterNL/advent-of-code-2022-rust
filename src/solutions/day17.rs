@@ -1,8 +1,5 @@
 use core::panic;
-use std::{
-    collections::HashSet,
-    fmt::{Display, Write},
-};
+use std::fmt::{Display, Write};
 
 use crate::vec2d::Vec2D;
 
@@ -104,11 +101,12 @@ impl From<char> for Jet {
 }
 
 struct State {
-    field: HashSet<Vec2D<i64>>,
+    field: [i64; CAVE_WIDTH as usize],
     falling_shape: &'static Shape<'static>,
     falling_shape_position: Vec2D<i64>,
     top: i64,
     resting_rock_count: i64,
+    stack_height: i64,
 }
 
 impl Display for State {
@@ -120,7 +118,7 @@ impl Display for State {
             f.write_char('|')?;
             for x in 0..CAVE_WIDTH {
                 let charpos = Vec2D { x, y };
-                if self.field.contains(&charpos) {
+                if *self.field.get(charpos.x as usize).unwrap() > charpos.y {
                     f.write_char('#')?;
                 } else if self
                     .falling_shape
@@ -145,11 +143,12 @@ impl Display for State {
 impl State {
     fn new(start_shape: &'static Shape) -> Self {
         let mut a = Self {
-            field: HashSet::new(),
+            field: [0, 0, 0, 0, 0, 0, 0],
             falling_shape: start_shape,
             falling_shape_position: Vec2D { x: 2, y: 4 },
             top: 0,
             resting_rock_count: 0,
+            stack_height: 0,
         };
         a.set_start_position();
 
@@ -165,13 +164,16 @@ impl State {
         &mut self,
         jet_iter: &mut impl Iterator<Item = &'a Jet>,
         rock_iter: &mut impl Iterator<Item = &'b &'static Shape<'static>>,
-    ) {
+    ) -> bool {
+        // println!("{}", self);
         self.apply_jet(jet_iter.next().unwrap());
 
         if self.can_fall() {
             self.fall();
+            false
         } else {
             self.rest(rock_iter);
+            true
         }
     }
 
@@ -182,13 +184,11 @@ impl State {
     fn apply_jet(&mut self, jet: &Jet) {
         match jet {
             Jet::Left => {
-                // println!("Jetted left");
                 if self.position_is_free(self.falling_shape_position + Vec2D { x: -1, y: 0 }) {
                     self.falling_shape_position.x -= 1;
                 }
             }
             Jet::Right => {
-                // println!("Jetted right");
                 if self.position_is_free(self.falling_shape_position + Vec2D { x: 1, y: 0 }) {
                     self.falling_shape_position.x += 1;
                 }
@@ -211,7 +211,8 @@ impl State {
         self.falling_shape
             .blocks
             .iter()
-            .all(|block_pos| !self.field.contains(&(*block_pos + position)))
+            .map(|block_pos| *block_pos + position)
+            .all(|block_pos| block_pos.y >= *self.field.get(block_pos.x as usize).unwrap())
     }
 
     fn can_fall(&self) -> bool {
@@ -231,12 +232,28 @@ impl State {
             .map(|b| (*b + self.falling_shape_position))
             .for_each(|pos| {
                 self.top = self.top.max(pos.y + 1);
-                self.field.insert(pos);
+                let current_field = *self.field.get(pos.x as usize).unwrap();
+                let new_field = current_field.max(pos.y + 1);
+                // println!(
+                // "X: {} |Current field: {}| New field: {}",
+                // pos.x, current_field, new_field
+                // );
+                *self.field.get_mut(pos.x as usize).unwrap() = new_field;
             });
 
         self.falling_shape = rock_iter.next().unwrap();
+        self.normalize_field();
         self.set_start_position();
+
+        // println!("{}", self);
         self.resting_rock_count += 1;
+    }
+
+    fn normalize_field(&mut self) {
+        let lowest_field = *self.field.iter().min().unwrap();
+        self.field.iter_mut().for_each(|n| *n -= lowest_field);
+        self.top -= lowest_field;
+        self.stack_height += lowest_field;
     }
 }
 
@@ -249,6 +266,7 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
         .collect();
 
     let tower_height = count_tower_height(&jets, 2022);
+    // let tower_height_p2 = count_tower_height(&jets, 1_000_000_000_000);
     let tower_height_p2 = 0;
 
     Ok(DayOutput {
@@ -265,9 +283,9 @@ fn count_tower_height(jets: &[Jet], iteration_count: i64) -> i64 {
     let percent = iteration_count / 100;
 
     loop {
-        state.advance(&mut jet_iter, &mut rock_iter);
+        let settled = state.advance(&mut jet_iter, &mut rock_iter);
 
-        if state.resting_rock_count % percent == 0 {
+        if settled && state.resting_rock_count % percent == 0 {
             println!("{}", state.resting_rock_count / percent);
         }
 
@@ -275,7 +293,7 @@ fn count_tower_height(jets: &[Jet], iteration_count: i64) -> i64 {
             break;
         }
     }
-    state.top
+    state.top + state.stack_height
 }
 
 #[cfg(test)]
@@ -310,6 +328,6 @@ mod tests {
                 break;
             }
         }
-        assert_eq!(state.top, 3068);
+        assert_eq!(state.top + state.stack_height, 3068);
     }
 }
