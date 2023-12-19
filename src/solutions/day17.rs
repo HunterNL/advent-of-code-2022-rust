@@ -298,6 +298,9 @@ fn count_tower_height(jets: &[Jet], iteration_count: i64) -> i64 {
 
 #[cfg(test)]
 mod tests {
+
+    use crate::solutions::day17::count_tower_height;
+
     use super::{Jet, State, SHAPES};
 
     static EXAMPLE_INPUT: &str = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>";
@@ -316,18 +319,7 @@ mod tests {
             .map(|c| c.into())
             .collect();
 
-        let mut jet_iter = jets.iter().cycle();
-        let mut rock_iter = SHAPES.iter().cycle();
-
-        let mut state = State::new(rock_iter.next().unwrap());
-
-        loop {
-            state.advance(&mut jet_iter, &mut rock_iter);
-
-            if state.resting_rock_count == 2022 {
-                break;
-            }
-        }
-        assert_eq!(state.top + state.stack_height, 3068);
+        let count = count_tower_height(jets.as_slice(), 2022);
+        assert_eq!(count, 3068);
     }
 }
