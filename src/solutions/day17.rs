@@ -6,10 +6,10 @@ use crate::vec2d::Vec2D;
 use super::{DayOutput, LogicError, PartResult};
 
 const CAVE_WIDTH: i64 = 7;
-const SHAPE_VERTICAL_SPAWN_OFFSET: i64 = 3;
-const SHAPE_HORIZONTAL_SPAWN_OFFSET: i64 = 2;
+const ROCK_VERTICAL_SPAWN_OFFSET: i64 = 3;
+const ROCK_HORIZONTAL_SPAWN_OFFSET: i64 = 2;
 
-static SHAPE_MINUS: Shape = Shape {
+static ROCK_MINUS: Rock = Rock {
     blocks: [
         Vec2D { x: 0, y: 0 },
         Vec2D { x: 1, y: 0 },
@@ -21,7 +21,7 @@ static SHAPE_MINUS: Shape = Shape {
     height: 1,
 };
 
-static SHAPE_PLUS: Shape = Shape {
+static ROCK_PLUS: Rock = Rock {
     blocks: [
         Vec2D { x: 1, y: 0 },
         Vec2D { x: 1, y: 1 },
@@ -34,7 +34,7 @@ static SHAPE_PLUS: Shape = Shape {
     height: 3,
 };
 
-static SHAPE_L: Shape = Shape {
+static ROCK_L: Rock = Rock {
     blocks: [
         Vec2D { x: 0, y: 0 },
         Vec2D { x: 1, y: 0 },
@@ -47,7 +47,7 @@ static SHAPE_L: Shape = Shape {
     height: 3,
 };
 
-static SHAPE_PIPE: Shape = Shape {
+static ROCK_PIPE: Rock = Rock {
     blocks: [
         Vec2D { x: 0, y: 0 },
         Vec2D { x: 0, y: 1 },
@@ -59,7 +59,7 @@ static SHAPE_PIPE: Shape = Shape {
     height: 4,
 };
 
-static SHAPE_CUBE: Shape = Shape {
+static ROCK_CUBE: Rock = Rock {
     blocks: [
         Vec2D { x: 0, y: 0 },
         Vec2D { x: 0, y: 1 },
@@ -71,15 +71,9 @@ static SHAPE_CUBE: Shape = Shape {
     height: 2,
 };
 
-static SHAPES: [&Shape; 5] = [
-    &SHAPE_MINUS,
-    &SHAPE_PLUS,
-    &SHAPE_L,
-    &SHAPE_PIPE,
-    &SHAPE_CUBE,
-];
+static ROCKS: [&Rock; 5] = [&ROCK_MINUS, &ROCK_PLUS, &ROCK_L, &ROCK_PIPE, &ROCK_CUBE];
 
-struct Shape<'a> {
+struct Rock<'a> {
     blocks: &'a [Vec2D<i64>],
     width: i64,
     height: i64,
@@ -104,11 +98,11 @@ struct State {
     /// Floor shape
     field: [i64; CAVE_WIDTH as usize],
 
-    /// Currently falling shape
-    falling_shape: &'static Shape<'static>,
+    /// Currently falling rock
+    falling_rock: &'static Rock<'static>,
 
-    /// Position of the bottomleft corner of the falling shape
-    falling_shape_position: Vec2D<i64>,
+    /// Position of the bottomleft corner of the falling rock
+    falling_rock_position: Vec2D<i64>,
 
     /// Highest point of the floor, used for determining spawn position
     top: i64,
@@ -122,7 +116,7 @@ struct State {
 
 impl Display for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let top_y = self.falling_shape_position.y + self.falling_shape.height + 1;
+        let top_y = self.falling_rock_position.y + self.falling_rock.height + 1;
         for n in 0..top_y {
             let y = top_y - (n + 1);
 
@@ -132,10 +126,10 @@ impl Display for State {
                 if *self.field.get(charpos.x as usize).unwrap() > charpos.y {
                     f.write_char('#')?;
                 } else if self
-                    .falling_shape
+                    .falling_rock
                     .blocks
                     .iter()
-                    .map(|pos| (*pos + self.falling_shape_position))
+                    .map(|pos| (*pos + self.falling_rock_position))
                     .any(|pos| pos == charpos)
                 {
                     f.write_char('@')?;
@@ -152,11 +146,11 @@ impl Display for State {
 }
 
 impl State {
-    fn new(start_shape: &'static Shape) -> Self {
+    fn new(start_rock: &'static Rock) -> Self {
         let mut a = Self {
             field: [0, 0, 0, 0, 0, 0, 0],
-            falling_shape: start_shape,
-            falling_shape_position: Vec2D { x: 2, y: 4 },
+            falling_rock: start_rock,
+            falling_rock_position: Vec2D { x: 2, y: 4 },
             top: 0,
             resting_rock_count: 0,
             stack_height: 0,
@@ -167,14 +161,14 @@ impl State {
     }
 
     fn set_start_position(&mut self) {
-        self.falling_shape_position.y = self.top + SHAPE_VERTICAL_SPAWN_OFFSET;
-        self.falling_shape_position.x = SHAPE_HORIZONTAL_SPAWN_OFFSET;
+        self.falling_rock_position.y = self.top + ROCK_VERTICAL_SPAWN_OFFSET;
+        self.falling_rock_position.x = ROCK_HORIZONTAL_SPAWN_OFFSET;
     }
 
     fn advance<'a, 'b>(
         &mut self,
         jet: &'a Jet,
-        rock_iter: &mut impl Iterator<Item = &'b &'static Shape<'static>>,
+        rock_iter: &mut impl Iterator<Item = &'b &'static Rock<'static>>,
     ) {
         self.apply_jet(jet);
 
@@ -182,24 +176,24 @@ impl State {
             self.fall();
         } else {
             self.rest();
-            self.insert_new_shape(rock_iter.next().unwrap());
+            self.insert_new_rock(rock_iter.next().unwrap());
         }
     }
 
     fn fall(&mut self) {
-        self.falling_shape_position.y -= 1;
+        self.falling_rock_position.y -= 1;
     }
 
     fn apply_jet(&mut self, jet: &Jet) {
         match jet {
             Jet::Left => {
-                if self.position_is_free(self.falling_shape_position + Vec2D { x: -1, y: 0 }) {
-                    self.falling_shape_position.x -= 1;
+                if self.position_is_free(self.falling_rock_position + Vec2D { x: -1, y: 0 }) {
+                    self.falling_rock_position.x -= 1;
                 }
             }
             Jet::Right => {
-                if self.position_is_free(self.falling_shape_position + Vec2D { x: 1, y: 0 }) {
-                    self.falling_shape_position.x += 1;
+                if self.position_is_free(self.falling_rock_position + Vec2D { x: 1, y: 0 }) {
+                    self.falling_rock_position.x += 1;
                 }
             }
         }
@@ -212,12 +206,12 @@ impl State {
         }
 
         // Right wall
-        if position.x + self.falling_shape.width > CAVE_WIDTH {
+        if position.x + self.falling_rock.width > CAVE_WIDTH {
             return false;
         }
 
         // Resting blocks
-        self.falling_shape
+        self.falling_rock
             .blocks
             .iter()
             .map(|block_pos| *block_pos + position)
@@ -229,20 +223,20 @@ impl State {
         let offset: Vec2D<i64> = Vec2D { x: 0, y: -1 };
 
         // Bottom floor
-        if self.falling_shape_position.y == 0 {
+        if self.falling_rock_position.y == 0 {
             return false;
         }
 
         // Other pieces
-        self.position_is_free(self.falling_shape_position + offset)
+        self.position_is_free(self.falling_rock_position + offset)
     }
 
     fn rest(&mut self) {
-        // Apply shape to floor shape
-        self.falling_shape
+        // Apply rock to floor shape
+        self.falling_rock
             .blocks
             .iter()
-            .map(|b| (*b + self.falling_shape_position))
+            .map(|b| (*b + self.falling_rock_position))
             .for_each(|pos| {
                 self.top = self.top.max(pos.y + 1);
                 let current_field = *self.field.get(pos.x as usize).unwrap();
@@ -261,8 +255,8 @@ impl State {
         self.stack_height += lowest_field;
     }
 
-    fn insert_new_shape(&mut self, shape: &'static Shape<'static>) {
-        self.falling_shape = shape;
+    fn insert_new_rock(&mut self, rock: &'static Rock<'static>) {
+        self.falling_rock = rock;
         self.set_start_position();
     }
 }
@@ -287,7 +281,7 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 
 fn count_tower_height(jets: &[Jet], rock_fall_count: i64) -> i64 {
     let mut jet_iter = jets.iter().cycle();
-    let mut rock_iter = SHAPES.iter().cycle();
+    let mut rock_iter = ROCKS.iter().cycle();
 
     let mut state = State::new(rock_iter.next().unwrap());
     // let percent = iteration_count / 100;
