@@ -101,11 +101,22 @@ impl From<char> for Jet {
 }
 
 struct State {
+    /// Floor shape
     field: [i64; CAVE_WIDTH as usize],
+
+    /// Currently falling shape
     falling_shape: &'static Shape<'static>,
+
+    /// Position of the bottomleft corner of the falling shape
     falling_shape_position: Vec2D<i64>,
+
+    /// Highest point of the floor, used for determining spawn position
     top: i64,
+
+    /// How many rocks have fallen and rested
     resting_rock_count: i64,
+
+    /// Height "below" the floor, added to by normalizing floor shape
     stack_height: i64,
 }
 
@@ -162,18 +173,16 @@ impl State {
 
     fn advance<'a, 'b>(
         &mut self,
-        jet_iter: &mut impl Iterator<Item = &'a Jet>,
+        jet: &'a Jet,
         rock_iter: &mut impl Iterator<Item = &'b &'static Shape<'static>>,
-    ) -> bool {
-        // println!("{}", self);
-        self.apply_jet(jet_iter.next().unwrap());
+    ) {
+        self.apply_jet(jet);
 
         if self.can_fall() {
             self.fall();
-            false
         } else {
-            self.rest(rock_iter);
-            true
+            self.rest();
+            self.insert_new_shape(rock_iter.next().unwrap());
         }
     }
 
@@ -216,16 +225,20 @@ impl State {
     }
 
     fn can_fall(&self) -> bool {
+        // One unit down
         let offset: Vec2D<i64> = Vec2D { x: 0, y: -1 };
 
+        // Bottom floor
         if self.falling_shape_position.y == 0 {
             return false;
         }
 
+        // Other pieces
         self.position_is_free(self.falling_shape_position + offset)
     }
 
-    fn rest<'a>(&mut self, rock_iter: &mut impl Iterator<Item = &'a &'static Shape<'static>>) {
+    fn rest(&mut self) {
+        // Apply shape to floor shape
         self.falling_shape
             .blocks
             .iter()
@@ -234,18 +247,10 @@ impl State {
                 self.top = self.top.max(pos.y + 1);
                 let current_field = *self.field.get(pos.x as usize).unwrap();
                 let new_field = current_field.max(pos.y + 1);
-                // println!(
-                // "X: {} |Current field: {}| New field: {}",
-                // pos.x, current_field, new_field
-                // );
                 *self.field.get_mut(pos.x as usize).unwrap() = new_field;
             });
-
-        self.falling_shape = rock_iter.next().unwrap();
+        // Reset lowest point to 0
         self.normalize_field();
-        self.set_start_position();
-
-        // println!("{}", self);
         self.resting_rock_count += 1;
     }
 
@@ -254,6 +259,11 @@ impl State {
         self.field.iter_mut().for_each(|n| *n -= lowest_field);
         self.top -= lowest_field;
         self.stack_height += lowest_field;
+    }
+
+    fn insert_new_shape(&mut self, shape: &'static Shape<'static>) {
+        self.falling_shape = shape;
+        self.set_start_position();
     }
 }
 
@@ -275,23 +285,15 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     })
 }
 
-fn count_tower_height(jets: &[Jet], iteration_count: i64) -> i64 {
+fn count_tower_height(jets: &[Jet], rock_fall_count: i64) -> i64 {
     let mut jet_iter = jets.iter().cycle();
     let mut rock_iter = SHAPES.iter().cycle();
 
     let mut state = State::new(rock_iter.next().unwrap());
-    let percent = iteration_count / 100;
+    // let percent = iteration_count / 100;
 
-    loop {
-        let settled = state.advance(&mut jet_iter, &mut rock_iter);
-
-        if settled && state.resting_rock_count % percent == 0 {
-            println!("{}", state.resting_rock_count / percent);
-        }
-
-        if state.resting_rock_count == iteration_count {
-            break;
-        }
+    while state.resting_rock_count < rock_fall_count {
+        state.advance(jet_iter.next().unwrap(), &mut rock_iter);
     }
     state.top + state.stack_height
 }
@@ -301,12 +303,11 @@ mod tests {
 
     use crate::solutions::day17::count_tower_height;
 
-    use super::{Jet, State, SHAPES};
+    use super::Jet;
 
     static EXAMPLE_INPUT: &str = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>";
 
     #[test]
-    #[ignore = "wip"]
     fn day() -> Result<(), String> {
         super::super::tests::test_day(17, super::solve)
     }
