@@ -1,5 +1,7 @@
-use core::panic;
-use std::fmt::{Display, Write};
+use std::{
+    collections::HashMap,
+    fmt::{Display, Write},
+};
 
 use crate::vec2d::Vec2D;
 
@@ -84,6 +86,8 @@ enum Jet {
     Right,
 }
 
+type FloorShape = [i64; CAVE_WIDTH as usize];
+
 impl From<char> for Jet {
     fn from(value: char) -> Self {
         match value {
@@ -94,9 +98,39 @@ impl From<char> for Jet {
     }
 }
 
-struct State {
+struct RockTower<'a> {
+    rocks_to_rest: i64,
+    jets: &'a [Jet],
+    floor_map: HashMap<FloorShape, FloorShape>,
+}
+
+impl<'a> RockTower<'a> {
+    fn new(rocks_to_rest: i64, jets: &'a [Jet]) -> Self {
+        Self {
+            rocks_to_rest,
+            jets,
+            floor_map: HashMap::new(),
+        }
+    }
+
+    fn calc_tower_height(&self) -> i64 {
+        let mut jet_iter = self.jets.iter().cycle();
+        let mut rock_iter = ROCKS.iter().cycle();
+
+        let mut state = Board::new(rock_iter.next().unwrap());
+        // let percent = iteration_count / 100;
+
+        while state.resting_rock_count < self.rocks_to_rest {
+            state.advance(jet_iter.next().unwrap(), &mut rock_iter);
+        }
+        state.top + state.stack_height
+    }
+}
+
+/// State of the not-tetris board
+struct Board {
     /// Floor shape
-    field: [i64; CAVE_WIDTH as usize],
+    field: FloorShape,
 
     /// Currently falling rock
     falling_rock: &'static Rock<'static>,
@@ -114,7 +148,7 @@ struct State {
     stack_height: i64,
 }
 
-impl Display for State {
+impl Display for Board {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let top_y = self.falling_rock_position.y + self.falling_rock.height + 1;
         for n in 0..top_y {
@@ -145,7 +179,7 @@ impl Display for State {
     }
 }
 
-impl State {
+impl Board {
     fn new(start_rock: &'static Rock) -> Self {
         let mut a = Self {
             field: [0, 0, 0, 0, 0, 0, 0],
@@ -269,7 +303,9 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
         .map(char::into)
         .collect();
 
-    let tower_height = count_tower_height(&jets, 2022);
+    let state = RockTower::new(2022, jets.as_slice());
+
+    let tower_height = state.calc_tower_height();
     // let tower_height_p2 = count_tower_height(&jets, 1_000_000_000_000);
     let tower_height_p2 = 0;
 
@@ -279,23 +315,12 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
     })
 }
 
-fn count_tower_height(jets: &[Jet], rock_fall_count: i64) -> i64 {
-    let mut jet_iter = jets.iter().cycle();
-    let mut rock_iter = ROCKS.iter().cycle();
-
-    let mut state = State::new(rock_iter.next().unwrap());
-    // let percent = iteration_count / 100;
-
-    while state.resting_rock_count < rock_fall_count {
-        state.advance(jet_iter.next().unwrap(), &mut rock_iter);
-    }
-    state.top + state.stack_height
-}
+// fn count_tower_height(jets: &[Jet], rock_fall_count: i64) -> i64 {}
 
 #[cfg(test)]
 mod tests {
 
-    use crate::solutions::day17::count_tower_height;
+    use crate::solutions::day17::RockTower;
 
     use super::Jet;
 
@@ -314,7 +339,9 @@ mod tests {
             .map(|c| c.into())
             .collect();
 
-        let count = count_tower_height(jets.as_slice(), 2022);
-        assert_eq!(count, 3068);
+        let state = RockTower::new(2022, jets.as_slice());
+
+        let tower_height = state.calc_tower_height();
+        assert_eq!(tower_height, 3068);
     }
 }
