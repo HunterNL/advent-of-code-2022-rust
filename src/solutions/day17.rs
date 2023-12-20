@@ -98,10 +98,16 @@ impl From<char> for Jet {
     }
 }
 
+struct Block {
+    height: i64,
+    top_shape: FloorShape,
+}
+
 struct RockTower<'a> {
     rocks_to_rest: i64,
     jets: &'a [Jet],
-    floor_map: HashMap<FloorShape, FloorShape>,
+    floor_map: HashMap<FloorShape, Block>,
+    board: Board,
 }
 
 impl<'a> RockTower<'a> {
@@ -110,20 +116,46 @@ impl<'a> RockTower<'a> {
             rocks_to_rest,
             jets,
             floor_map: HashMap::new(),
+
+            board: Board::new(ROCKS[0]),
         }
     }
 
-    fn calc_tower_height(&self) -> i64 {
+    fn remaining_rocks(&self) -> i64 {
+        self.rocks_to_rest - self.board.resting_rock_count
+    }
+
+    fn block_size(&self) -> i64 {
+        self.jets.len() as i64 * ROCKS.len() as i64
+    }
+
+    fn calc_tower_height(&mut self) -> i64 {
         let mut jet_iter = self.jets.iter().cycle();
         let mut rock_iter = ROCKS.iter().cycle();
 
-        let mut state = Board::new(rock_iter.next().unwrap());
+        let mut board = Board::new(rock_iter.next().unwrap());
+
+        if self.remaining_rocks() < self.block_size() || !self.floor_map.contains_key(&board.field)
+        {
+            let start_floor = &self.board.field;
+            let start_height = self.board.stack_height;
+            while board.resting_rock_count < self.rocks_to_rest {
+                board.advance(jet_iter.next().unwrap(), &mut rock_iter);
+            }
+            let end_floor = self.board.field;
+            let end_height = self.board.stack_height;
+
+            self.floor_map.insert(
+                *start_floor,
+                Block {
+                    height: end_height - start_height,
+                    top_shape: end_floor,
+                },
+            );
+        }
         // let percent = iteration_count / 100;
 
-        while state.resting_rock_count < self.rocks_to_rest {
-            state.advance(jet_iter.next().unwrap(), &mut rock_iter);
-        }
-        state.top + state.stack_height
+        board.top + board.stack_height
     }
 }
 
@@ -303,7 +335,9 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
         .map(char::into)
         .collect();
 
-    let state = RockTower::new(2022, jets.as_slice());
+    // unimplemented!();
+
+    let mut state = RockTower::new(2022, jets.as_slice());
 
     let tower_height = state.calc_tower_height();
     // let tower_height_p2 = count_tower_height(&jets, 1_000_000_000_000);
@@ -339,9 +373,9 @@ mod tests {
             .map(|c| c.into())
             .collect();
 
-        let state = RockTower::new(2022, jets.as_slice());
+        let mut tower = RockTower::new(2022, jets.as_slice());
+        let tower_height = tower.calc_tower_height();
 
-        let tower_height = state.calc_tower_height();
         assert_eq!(tower_height, 3068);
     }
 }
