@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{hash_map::Entry, HashMap},
     fmt::{Display, Write},
 };
 
@@ -81,6 +81,7 @@ struct Rock<'a> {
     height: i64,
 }
 
+#[derive(Clone, Copy)]
 enum Jet {
     Left,
     Right,
@@ -93,21 +94,31 @@ impl From<char> for Jet {
         match value {
             '<' => Self::Left,
             '>' => Self::Right,
-            _ => panic!("Unexpected input"),
+            _ => panic!("Unexpected input, expected only '>' or '<'"),
         }
     }
 }
 
+/// A block of a collection of rocks applied to a tower
+/// It can be seen as a map of one tower state to another
+/// It requires both rock_index and jet_index be 0 at the "joints"
 struct Block {
     height: i64,
     top_shape: FloorShape,
+    jet_offset: i64,
+    rock_count: i64,
 }
 
 struct RockTower<'a> {
+    rock_iter_pos: usize,
+    jet_iter_pos: usize,
     rocks_to_rest: i64,
     jets: &'a [Jet],
     floor_map: HashMap<FloorShape, Block>,
-    board: Board,
+    inhibit_superblock: bool, // board: Board,
+                              // rock_iter:
+                              // std::iter::Cycle<std::iter::Cloned<std::slice::Iter<'static, &'static Rock<'static>>>>,
+                              // rock_iter: std::iter::Cycle<std::slice::Iter<'a, &'static Rock<'static>>>,
 }
 
 impl<'a> RockTower<'a> {
@@ -116,56 +127,116 @@ impl<'a> RockTower<'a> {
             rocks_to_rest,
             jets,
             floor_map: HashMap::new(),
-
-            board: Board::new(ROCKS[0]),
+            inhibit_superblock: false,
+            rock_iter_pos: 0,
+            jet_iter_pos: 0,
+            // rock_iter: ROCKS.iter().cloned().cycle(),
+            // board: Board::new(ROCKS[0]),
         }
     }
 
-    fn remaining_rocks(&self) -> i64 {
-        self.rocks_to_rest - self.board.resting_rock_count
+    fn next_rock(&mut self) -> usize {
+        (self.rock_iter_pos + 1) % ROCKS.len()
     }
 
-    fn block_size(&self) -> i64 {
-        self.jets.len() as i64 * ROCKS.len() as i64
+    fn next_jet(&mut self) -> Jet {
+        let jet = &self.jets[self.jet_iter_pos];
+        self.jet_iter_pos = (self.jet_iter_pos + 1) % self.jets.len();
+        *jet
+    }
+
+    fn remaining_rocks(&self, board: &Board) -> i64 {
+        self.rocks_to_rest - board.resting_rock_count
+    }
+
+    fn block_size(&self) -> usize {
+        self.jets.len() * ROCKS.len()
     }
 
     fn calc_tower_height(&mut self) -> i64 {
-        let mut jet_iter = self.jets.iter().cycle();
-        let mut rock_iter = ROCKS.iter().cycle();
+        let mut board = Board::new(0); // Block here doesn't matter, run_block runs its own iter if needed
 
-        let mut board = Board::new(rock_iter.next().unwrap());
+        println!(
+            "Block size {}x{}={}",
+            self.jets.len(),
+            ROCKS.len(),
+            self.block_size()
+        );
 
-        if self.remaining_rocks() < self.block_size() || !self.floor_map.contains_key(&board.field)
-        {
-            let start_floor = &self.board.field;
-            let start_height = self.board.stack_height;
-            while board.resting_rock_count < self.rocks_to_rest {
-                board.advance(jet_iter.next().unwrap(), &mut rock_iter);
-            }
-            let end_floor = self.board.field;
-            let end_height = self.board.stack_height;
+        let mut jet_index = 0;
 
-            self.floor_map.insert(
-                *start_floor,
-                Block {
-                    height: end_height - start_height,
-                    top_shape: end_floor,
-                },
-            );
+        // Block only
+        // while self.remaining_rocks(&board) > self.block_size() as i64 && !self.inhibit_superblock {
+        //     // println!("Running block");
+        //     self.run_block(&mut board, &mut jet_index);
+        //     println!("Stack height now {}", board.stack_height)
+        // }
+
+        while self.remaining_rocks(&board) > 0 {
+            let jet = *self.jets.get(jet_index).unwrap();
+
+            jet_index = (jet_index + 1) % self.jets.len();
+
+            board.advance(jet);
         }
-        // let percent = iteration_count / 100;
 
         board.top + board.stack_height
+    }
+
+    // fn create_block(&self, mut start_board: Board) -> Block {
+
+    // }
+
+    fn run_block(&mut self, board: &mut Board, jet_index: &mut usize) {
+        let block_size = self.block_size();
+        board.insert_new_rock(self.next_rock());
+
+        match self.floor_map.entry(board.field) {
+            Entry::Occupied(e) => {
+                println!("Using cache");
+                let block = e.get();
+
+                board.field = block.top_shape;
+                board.stack_height += block.height;
+                board.resting_rock_count += self.block_size() as i64;
+                board.top = *board.field.iter().max().unwrap();
+            }
+            Entry::Vacant(e) => {}
+        }
+        println!("Simulating block");
+        let start_height = board.stack_height;
+        let block_cap = board.resting_rock_count + block_size as i64;
+        loop {
+            let rock = self.next_rock();
+            let jet = self.next_jet();
+            board.advance(jet);
+        }
+        let end_floor = board.field;
+        let end_height = board.stack_height;
+
+        // e.insert(Block {
+        //     height: end_height - start_height,
+        //     top_shape: end_floor,
+        // });
+        // }
+        // }
+
+        // if let Entry::Vacant(e) =  {
+
+        // } else {
+
+        // }
     }
 }
 
 /// State of the not-tetris board
+#[derive(Clone)]
 struct Board {
     /// Floor shape
     field: FloorShape,
 
     /// Currently falling rock
-    falling_rock: &'static Rock<'static>,
+    falling_rock: usize,
 
     /// Position of the bottomleft corner of the falling rock
     falling_rock_position: Vec2D<i64>,
@@ -182,7 +253,7 @@ struct Board {
 
 impl Display for Board {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let top_y = self.falling_rock_position.y + self.falling_rock.height + 1;
+        let top_y = self.falling_rock_position.y + self.rock().height + 1;
         for n in 0..top_y {
             let y = top_y - (n + 1);
 
@@ -192,7 +263,7 @@ impl Display for Board {
                 if *self.field.get(charpos.x as usize).unwrap() > charpos.y {
                     f.write_char('#')?;
                 } else if self
-                    .falling_rock
+                    .rock()
                     .blocks
                     .iter()
                     .map(|pos| (*pos + self.falling_rock_position))
@@ -212,7 +283,7 @@ impl Display for Board {
 }
 
 impl Board {
-    fn new(start_rock: &'static Rock) -> Self {
+    fn new(start_rock: usize) -> Self {
         let mut a = Self {
             field: [0, 0, 0, 0, 0, 0, 0],
             falling_rock: start_rock,
@@ -226,23 +297,27 @@ impl Board {
         a
     }
 
+    fn rock(&self) -> &'static Rock<'static> {
+        ROCKS.get(self.falling_rock).unwrap()
+    }
+
     fn set_start_position(&mut self) {
         self.falling_rock_position.y = self.top + ROCK_VERTICAL_SPAWN_OFFSET;
         self.falling_rock_position.x = ROCK_HORIZONTAL_SPAWN_OFFSET;
     }
 
-    fn advance<'a, 'b>(
-        &mut self,
-        jet: &'a Jet,
-        rock_iter: &mut impl Iterator<Item = &'b &'static Rock<'static>>,
-    ) {
+    fn next_rock(&self) -> usize {
+        (self.falling_rock + 1) % ROCKS.len()
+    }
+
+    fn advance(&mut self, jet: Jet) {
         self.apply_jet(jet);
 
         if self.can_fall() {
             self.fall();
         } else {
             self.rest();
-            self.insert_new_rock(rock_iter.next().unwrap());
+            self.insert_new_rock(self.next_rock());
         }
     }
 
@@ -250,7 +325,7 @@ impl Board {
         self.falling_rock_position.y -= 1;
     }
 
-    fn apply_jet(&mut self, jet: &Jet) {
+    fn apply_jet(&mut self, jet: Jet) {
         match jet {
             Jet::Left => {
                 if self.position_is_free(self.falling_rock_position + Vec2D { x: -1, y: 0 }) {
@@ -272,12 +347,12 @@ impl Board {
         }
 
         // Right wall
-        if position.x + self.falling_rock.width > CAVE_WIDTH {
+        if position.x + self.rock().width > CAVE_WIDTH {
             return false;
         }
 
         // Resting blocks
-        self.falling_rock
+        self.rock()
             .blocks
             .iter()
             .map(|block_pos| *block_pos + position)
@@ -299,7 +374,7 @@ impl Board {
 
     fn rest(&mut self) {
         // Apply rock to floor shape
-        self.falling_rock
+        self.rock()
             .blocks
             .iter()
             .map(|b| (*b + self.falling_rock_position))
@@ -321,7 +396,7 @@ impl Board {
         self.stack_height += lowest_field;
     }
 
-    fn insert_new_rock(&mut self, rock: &'static Rock<'static>) {
+    fn insert_new_rock(&mut self, rock: usize) {
         self.falling_rock = rock;
         self.set_start_position();
     }
@@ -337,10 +412,12 @@ pub fn solve(input: &str) -> Result<DayOutput, LogicError> {
 
     // unimplemented!();
 
-    let mut state = RockTower::new(2022, jets.as_slice());
+    let mut p1_tower = RockTower::new(2022, jets.as_slice());
+    let mut p2_tower = RockTower::new(1_000_000_000_000, jets.as_slice());
 
-    let tower_height = state.calc_tower_height();
-    // let tower_height_p2 = count_tower_height(&jets, 1_000_000_000_000);
+    let tower_height = p1_tower.calc_tower_height();
+    // let tower_height_p2 = p2_tower.calc_tower_height();
+
     let tower_height_p2 = 0;
 
     Ok(DayOutput {
@@ -374,8 +451,41 @@ mod tests {
             .collect();
 
         let mut tower = RockTower::new(2022, jets.as_slice());
+        tower.inhibit_superblock = true;
         let tower_height = tower.calc_tower_height();
 
         assert_eq!(tower_height, 3068);
     }
+
+    #[test]
+    fn example_superblock() {
+        let jets: Vec<Jet> = EXAMPLE_INPUT
+            .chars()
+            .filter(|c| *c != '\n')
+            .map(|c| c.into())
+            .collect();
+
+        let mut tower = RockTower::new(2022, jets.as_slice());
+        let tower_height = tower.calc_tower_height();
+
+        assert_eq!(tower_height, 3068);
+    }
+
+    // /    #[test]
+    // fn superblock_parity() {
+    //     let jets: Vec<Jet> = EXAMPLE_INPUT
+    //         .chars()
+    //         .filter(|c| *c != '\n')
+    //         .map(|c| c.into())
+    //         .collect();
+
+    //     let mut tower = RockTower::new(2022, jets.as_slice());
+    //     tower.inhibit_superblock = true;
+    //     let real_tower_height = tower.calc_tower_height();
+
+    //     let mut tower2 = RockTower::new(2022, jets.as_slice());
+    //     let superblock_tower_height = tower2.calc_tower_height();
+
+    //     assert_eq!(real_tower_height, superblock_tower_height);
+    // }
 }
